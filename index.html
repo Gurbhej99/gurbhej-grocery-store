@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gurbhej Grocery Store - Fast Billing & Khatabook</title>
   
+  <!-- PWA Installable Configuration -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#22c55e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Gurbhej Store">
+  <link rel="apple-touch-icon" href="icons/icon-512.png">
+  <link rel="icon" type="image/png" href="icons/icon-512.png">
+  
   <!-- Global Premium Stylesheet -->
   <link rel="stylesheet" href="./style.css">
   
@@ -307,7 +316,10 @@
               <div class="checkout-controls">
                 <div class="form-row" style="margin-bottom: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                   <div class="form-group" style="margin-bottom: 0;">
-                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--dark);">Customer Phone</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                      <label style="font-size: 0.85rem; font-weight: 600; color: var(--dark); margin: 0;">Customer Phone</label>
+                      <button type="button" id="btn-select-contact" class="btn btn-secondary" style="font-size: 0.7rem; padding: 2px 8px; height: auto; font-weight: 600; border-radius: 4px; display: none;">Select Contact</button>
+                    </div>
                     <input type="text" id="billing-customer-phone" class="form-control" placeholder="Enter Phone..." style="height: 36px;">
                   </div>
                   <div class="form-group" style="margin-bottom: 0;">
@@ -585,6 +597,14 @@
            6. SETTINGS PAGE
            ========================================== -->
       <section id="settings-view" class="page-view">
+        <div class="card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-direction: row; gap: 16px; padding: 20px;">
+          <div>
+            <h3 style="margin: 0; font-weight: 800; color: var(--dark); font-size: 1.15rem;">Store & UPI Payment Profile</h3>
+            <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">Manage your main store brand details and Paytm QR configuration.</p>
+          </div>
+          <button id="btn-edit-full-profile" class="btn btn-primary" style="height: 40px; font-weight: 700; white-space: nowrap;">Edit Store Profile</button>
+        </div>
+        
         <div class="settings-grid">
           
           <!-- Shop Details Form & Firebase config Panel -->
@@ -662,7 +682,7 @@
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
               </svg>
-              Offline Backups & Maintenance
+              Data Backup & Restore
             </h3>
             
             <div class="backup-card-content">
@@ -672,14 +692,19 @@
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                 </svg>
-                Download Backup (JSON)
+                Download Full Backup
               </button>
+              
+              <div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 10px;">
+                <button id="btn-add-sample-products" class="btn btn-secondary" style="flex: 1; font-weight: 600; font-size: 0.85rem;" data-i18n="addSampleProductsBtn">Add Sample Products</button>
+                <button id="btn-clear-sample-data" class="btn btn-secondary" style="flex: 1; font-weight: 600; font-size: 0.85rem;" data-i18n="clearSampleDataBtn">Clear Sample Data</button>
+              </div>
               
               <div class="file-upload-zone">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32" class="upload-icon">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                 </svg>
-                <div class="upload-text" data-i18n="restoreBtn">Upload & Restore Backup File</div>
+                <div class="upload-text" data-i18n="restoreBtn">Upload Backup JSON</div>
                 <div class="upload-subtext">Drag & drop or click to upload .json backup</div>
                 <input type="file" id="settings-restore-file" accept=".json">
               </div>
@@ -687,7 +712,7 @@
               <div style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: 10px;">
                 <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--danger); margin-bottom: 8px;">DANGER ZONE</h4>
                 <p class="backup-instruction" style="margin-bottom: 12px;" data-i18n="resetWarning">Warning: Resetting the database will delete all local store records permanently!</p>
-                <button id="btn-reset-db" class="btn btn-danger" style="width: 100%;" data-i18n="resetBtn">Reset Local Database</button>
+                <button id="btn-reset-db" class="btn btn-danger" style="width: 100%;" data-i18n="resetBtn">Reset All Local Data</button>
               </div>
             </div>
           </div>
@@ -1153,6 +1178,92 @@
           <span data-i18n="settings">Settings</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Full-Screen Shop Profile Setup Overlay -->
+  <div id="profile-setup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-light); z-index: 99999; overflow-y: auto; padding: 24px 16px; font-family: 'Outfit', sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">
+      
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="color: var(--primary); font-weight: 800; font-size: 1.8rem; margin-bottom: 8px;">Gurbhej Billing System</h2>
+        <p style="color: var(--text-muted); font-size: 0.95rem;">First-Time Shop Profile Setup</p>
+        <div style="width: 60px; height: 4px; background: var(--primary); margin: 12px auto; border-radius: 2px;"></div>
+      </div>
+      
+      <form id="profile-setup-form" style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- Section 1: Shop details -->
+        <div>
+          <h4 style="color: var(--dark); font-weight: 700; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Shop Profile Information</h4>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-weight: 600; font-size: 0.85rem;">Store Name *</label>
+              <input type="text" id="setup-shop-name" class="form-control" placeholder="e.g. Gurbhej Grocery Store" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-weight: 600; font-size: 0.85rem;">Owner Name *</label>
+              <input type="text" id="setup-owner-name" class="form-control" placeholder="e.g. Gurbhej Singh" required>
+            </div>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Shop Phone *</label>
+            <input type="text" id="setup-shop-phone" class="form-control" placeholder="e.g. 9876543210" required>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Shop Address *</label>
+            <textarea id="setup-shop-address" class="form-control" rows="2" placeholder="e.g. Main Bazaar, Gurdaspur, Punjab" required></textarea>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Shop Tagline</label>
+            <input type="text" id="setup-shop-tagline" class="form-control" placeholder="e.g. Fresh groceries and trusted service">
+          </div>
+        </div>
+        
+        <!-- Section 2: UPI details -->
+        <div>
+          <h4 style="color: var(--dark); font-weight: 700; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Paytm / UPI Payment Settings</h4>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-weight: 600; font-size: 0.85rem;">UPI Name *</label>
+              <input type="text" id="setup-upi-name" class="form-control" placeholder="e.g. Gurbhej Singh" required>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-weight: 600; font-size: 0.85rem;">UPI Phone *</label>
+              <input type="text" id="setup-upi-phone" class="form-control" placeholder="e.g. 7973679747" required>
+            </div>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label style="font-weight: 600; font-size: 0.85rem;">UPI ID *</label>
+            <input type="text" id="setup-upi-id" class="form-control" placeholder="e.g. paytm.s1sd9a3@pty" required>
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 0.85rem;">Upload UPI QR Code Image</label>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <input type="file" id="setup-upi-qr" accept="image/*" class="form-control" style="padding: 4px;">
+              <button type="button" id="btn-setup-remove-qr" class="btn btn-secondary" style="display: none; padding: 0 12px; height: 38px;">Remove</button>
+            </div>
+            <div id="setup-qr-preview-container" style="margin-top: 10px; display: none; text-align: center;">
+              <img id="setup-qr-preview" style="max-width: 120px; border-radius: 8px; border: 1px solid var(--border-color);" alt="QR Preview">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Buttons -->
+        <div style="display: flex; gap: 12px; margin-top: 10px;">
+          <button type="submit" class="btn btn-primary" style="flex: 2; height: 44px; font-weight: 700;">Save Profile & Open App</button>
+          <button type="button" id="btn-setup-reset" class="btn btn-secondary" style="flex: 1; height: 44px;">Reset Fields</button>
+          <button type="button" id="btn-setup-close" class="btn btn-secondary" style="display: none; flex: 1; height: 44px;">Cancel</button>
+        </div>
+        
+      </form>
     </div>
   </div>
 

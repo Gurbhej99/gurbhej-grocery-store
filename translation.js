@@ -124,11 +124,13 @@ const TRANSLATIONS = {
     firebaseSettings: "Firebase Sync Settings (Cloud Database)",
     firebaseConfigPlaceholder: "Paste your Firebase configuration keys...",
     enableFirebase: "Sync Data to Firebase (Cloud Mode)",
-    localBackup: "Offline Data Backup & Restore",
-    backupBtn: "Download Backup (JSON)",
-    restoreBtn: "Restore Backup File",
-    resetBtn: "Reset Local Database",
-    resetWarning: "Warning: This will delete all local store records permanently!"
+    localBackup: "Data Backup & Restore",
+    backupBtn: "Download Full Backup",
+    restoreBtn: "Upload Backup JSON",
+    resetBtn: "Reset All Local Data",
+    resetWarning: "Warning: This will delete all local store records permanently!",
+    addSampleProductsBtn: "Add Sample Products",
+    clearSampleDataBtn: "Clear Sample Data"
   },
   hi: {
     // Navigation / General
@@ -252,11 +254,13 @@ const TRANSLATIONS = {
     firebaseSettings: "क्लाउड डेटाबेस (Firebase Setup)",
     firebaseConfigPlaceholder: "अपनी Firebase कॉन्फ़िगरेशन की डालें...",
     enableFirebase: "Firebase से डेटा कनेक्ट करें (क्लाउड मोड)",
-    localBackup: "ऑफ़लाइन डेटा बैकअप",
-    backupBtn: "बैकअप डाउनलोड करें (JSON)",
-    restoreBtn: "बैकअप फाइल अपलोड करें",
-    resetBtn: "लोकल डेटा साफ करें",
-    resetWarning: "चेतावनी: यह दुकान का सारा लोकल डेटा हमेशा के लिए हटा देगा!"
+    localBackup: "डेटा बैकअप और पुनर्प्राप्ति",
+    backupBtn: "पूर्ण बैकअप डाउनलोड करें",
+    restoreBtn: "बैकअप JSON अपलोड करें",
+    resetBtn: "सभी स्थानीय डेटा रीसेट करें",
+    resetWarning: "चेतावनी: यह दुकान का सारा लोकल डेटा हमेशा के लिए हटा देगा!",
+    addSampleProductsBtn: "सैंपल उत्पाद जोड़ें",
+    clearSampleDataBtn: "सैंपल डेटा साफ़ करें"
   },
   pa: {
     // Navigation / General
@@ -380,11 +384,13 @@ const TRANSLATIONS = {
     firebaseSettings: "ਕਲਾਉਡ ਡੇਟਾਬੇਸ (Firebase Setup)",
     firebaseConfigPlaceholder: "ਆਪਣੀ Firebase ਕੌਂਫਿਗਰੇਸ਼ਨ ਕੀਅਜ਼ ਪਾਓ...",
     enableFirebase: "Firebase ਨਾਲ ਡਾਟਾ ਕਨੈਕਟ ਕਰੋ (ਕਲਾਊਡ ਮੋਡ)",
-    localBackup: "ਔਫਲਾਈਨ ਡਾਟਾ ਬੈਕਅੱਪ",
-    backupBtn: "ਬੈਕਅੱਪ ਡਾਊਨਲੋਡ ਕਰੋ (JSON)",
-    restoreBtn: "ਬੈਕਅੱਪ ਫਾਈਲ ਅੱਪਲੋਡ ਕਰੋ",
-    resetBtn: "ਲੋਕਲ ਡਾਟਾ ਸਾਫ਼ ਕਰੋ",
-    resetWarning: "ਚੇਤਾਵਨੀ: ਇਹ ਦੁਕਾਨ ਦਾ ਸਾਰਾ ਲੋਕਲ ਡਾਟਾ ਹਮੇਸ਼ਾ ਲਈ ਹਟਾ ਦੇਵੇਗਾ!"
+    localBackup: "ਡੇਟਾ ਬੈਕਅੱਪ ਅਤੇ ਰੀਸਟੋਰ",
+    backupBtn: "ਪੂਰਾ ਬੈਕਅੱਪ ਡਾਊਨਲੋਡ ਕਰੋ",
+    restoreBtn: "ਬੈਕਅੱਪ JSON ਅੱਪਲੋਡ ਕਰੋ",
+    resetBtn: "ਸਾਰਾ ਲੋਕਲ ਡੇਟਾ ਰੀਸੈਟ ਕਰੋ",
+    resetWarning: "ਚੇਤਾਵਨੀ: ਇਹ ਦੁਕਾਨ ਦਾ ਸਾਰਾ ਲੋਕਲ ਡਾਟਾ ਹਮੇਸ਼ਾ ਲਈ ਹਟਾ ਦੇਵੇਗਾ!",
+    addSampleProductsBtn: "ਸੈਂਪਲ ਸਮਾਨ ਜੋੜੋ",
+    clearSampleDataBtn: "ਸੈਂਪਲ ਡੇਟਾ ਸਾਫ਼ ਕਰੋ"
   }
 };
 

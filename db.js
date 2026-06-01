@@ -101,14 +101,48 @@ class DatabaseEngine {
   async init(onSyncReady = null) {
     this.syncCallback = onSyncReady;
     
-    // Check and pre-populate LocalStorage with default samples if empty
-    if (!localStorage.getItem(this.getKey("products"))) {
-      this.resetToDefaults();
-    }
-
-    // Ensure categories are pre-populated
-    if (!localStorage.getItem(this.getKey("categories"))) {
-      localStorage.setItem(this.getKey("categories"), JSON.stringify(DEFAULT_CATEGORIES));
+    const settingsKey = this.getKey("settings");
+    const productsKey = this.getKey("products");
+    
+    // Check if it's a completely new user / device
+    if (!localStorage.getItem(settingsKey) && !localStorage.getItem(productsKey)) {
+      // Initialize as a blank new user/device
+      localStorage.setItem(this.getKey("products"), JSON.stringify([]));
+      localStorage.setItem(this.getKey("categories"), JSON.stringify([]));
+      localStorage.setItem(this.getKey("customers"), JSON.stringify([]));
+      localStorage.setItem(this.getKey("invoices"), JSON.stringify([]));
+      localStorage.setItem(this.getKey("payments"), JSON.stringify([]));
+      
+      const blankSettings = {
+        profileCompleted: false,
+        shopName: "",
+        ownerName: "",
+        shopPhone: "",
+        shopAddress: "",
+        shopTagline: "",
+        upiName: "",
+        upiPhone: "",
+        upiId: "",
+        upiQrImage: ""
+      };
+      localStorage.setItem(settingsKey, JSON.stringify(blankSettings));
+    } else {
+      // Existing device: if specific keys are missing, initialize to empty arrays to prevent crashes
+      if (localStorage.getItem(productsKey) === null) {
+        localStorage.setItem(productsKey, JSON.stringify([]));
+      }
+      if (localStorage.getItem(this.getKey("categories")) === null) {
+        localStorage.setItem(this.getKey("categories"), JSON.stringify([]));
+      }
+      if (localStorage.getItem(this.getKey("customers")) === null) {
+        localStorage.setItem(this.getKey("customers"), JSON.stringify([]));
+      }
+      if (localStorage.getItem(this.getKey("invoices")) === null) {
+        localStorage.setItem(this.getKey("invoices"), JSON.stringify([]));
+      }
+      if (localStorage.getItem(this.getKey("payments")) === null) {
+        localStorage.setItem(this.getKey("payments"), JSON.stringify([]));
+      }
     }
 
     // Try starting Firebase Cloud Connection
@@ -145,7 +179,9 @@ class DatabaseEngine {
     // Set default shop profile settings
     if (!localStorage.getItem(this.getKey("settings"))) {
       const defaultSettings = {
+        profileCompleted: false,
         shopName: "Gurbhej Grocery Store",
+        ownerName: "Gurbhej Singh",
         shopPhone: "",
         shopAddress: "",
         shopTagline: "Fresh groceries & trusted service / ਤਾਜ਼ਾ ਰਾਸ਼ਨ, ਭਰੋਸੇਮੰਦ ਸੇਵਾ",
@@ -536,16 +572,25 @@ class DatabaseEngine {
   getSettings() {
     const data = localStorage.getItem(this.getKey("settings"));
     const defaults = {
-      shopName: "Gurbhej Grocery Store",
+      profileCompleted: false,
+      shopName: "",
+      ownerName: "",
       shopPhone: "",
       shopAddress: "",
-      shopTagline: "Fresh groceries & trusted service / ਤਾਜ਼ਾ ਰਾਸ਼ਨ, ਭਰੋਸੇਮੰਦ ਸੇਵਾ",
-      upiName: "Gurbhej Singh",
-      upiPhone: "7973679747",
-      upiId: "paytm.s1sd9a3@pty",
+      shopTagline: "",
+      upiName: "",
+      upiPhone: "",
+      upiId: "",
       upiQrImage: ""
     };
-    return data ? { ...defaults, ...JSON.parse(data) } : defaults;
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (parsed.profileCompleted === undefined) {
+        parsed.profileCompleted = true;
+      }
+      return { ...defaults, ...parsed };
+    }
+    return defaults;
   }
 
   saveSettings(settings) {
@@ -580,15 +625,18 @@ class DatabaseEngine {
   async restoreFromJSON(jsonString) {
     try {
       const data = JSON.parse(jsonString);
-      if (!data.products || !data.customers || !data.invoices) {
-        throw new Error("Invalid backup file format.");
+      if (!data || typeof data !== "object") {
+        throw new Error("Invalid backup file format: data is not a JSON object.");
+      }
+      if (!Array.isArray(data.products) || !Array.isArray(data.customers) || !Array.isArray(data.invoices)) {
+        throw new Error("Invalid backup file format: core collections (products, customers, invoices) are missing or invalid.");
       }
 
       this.setLocalData("products", data.products);
       this.setLocalData("categories", data.categories || []);
       this.setLocalData("customers", data.customers);
       this.setLocalData("invoices", data.invoices);
-      this.setLocalData("payments", data.payments || []);
+      this.setLocalData("payments", data.payments || data.khatabook || []);
       if (data.settings) this.saveSettings(data.settings);
 
       // Force push uploaded data to cloud if Firebase is active
@@ -600,6 +648,30 @@ class DatabaseEngine {
     } catch (e) {
       console.error("Backup restoration failed:", e);
       return false;
+    }
+  }
+
+  addSampleProducts() {
+    this.setLocalData("products", DEFAULT_PRODUCTS);
+    this.setLocalData("categories", DEFAULT_CATEGORIES);
+    this.setLocalData("customers", DEFAULT_CUSTOMERS);
+    this.setLocalData("invoices", DEFAULT_INVOICES);
+    this.setLocalData("payments", DEFAULT_PAYMENTS);
+
+    if (this.firebaseActive && this.db) {
+      this.uploadLocalDataToCloud();
+    }
+  }
+
+  clearSampleData() {
+    this.setLocalData("products", []);
+    this.setLocalData("categories", []);
+    this.setLocalData("customers", []);
+    this.setLocalData("invoices", []);
+    this.setLocalData("payments", []);
+
+    if (this.firebaseActive && this.db) {
+      this.uploadLocalDataToCloud();
     }
   }
 }

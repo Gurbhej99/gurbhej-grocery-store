@@ -203,6 +203,23 @@ const state = {
 // INITIALIZATION AND ROUTING
 // ==========================================
 document.addEventListener("DOMContentLoaded", async () => {
+  // Show success toast notifications after PWA redirects/reloads
+  if (sessionStorage.getItem("pwa_restore_success") === "true") {
+    sessionStorage.removeItem("pwa_restore_success");
+    showToast("Database successfully restored from backup!", "success");
+  }
+  if (sessionStorage.getItem("pwa_reset_success") === "true") {
+    sessionStorage.removeItem("pwa_reset_success");
+    showToast("Local database wiped & restored to default samples!", "success");
+  }
+
+  // Register PWA Service Worker for offline support
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./service-worker.js")
+      .then(reg => console.log("[Service Worker] Registered successfully:", reg.scope))
+      .catch(err => console.error("[Service Worker] Registration failed:", err));
+  }
+
   // Initialize Database Engine
   showToast("Initializing database...", "info");
   await DB.init(async () => {
@@ -210,6 +227,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     updateCloudStatusIndicator();
     populateCategoryDropdowns();
     renderActivePage();
+    checkFirstTimeProfile();
   });
 
   state.firebaseEnabled = DB.isFirebaseEnabled();
@@ -306,9 +324,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupReportsEventListeners();
   setupSettingsEventListeners();
   setupCustomersEventListeners();
+  setupProfileSetupEventListeners();
 
   // Draw initial page
   renderActivePage();
+  checkFirstTimeProfile();
   
   showToast("Ready / ਤਿਆਰ / तैयार", "success");
 });
@@ -768,6 +788,49 @@ function setupBillingEventListeners() {
   // Customer phone auto-fill search & purchase history badge controller
   const phoneInput = document.getElementById("billing-customer-phone");
   const nameInput = document.getElementById("billing-customer-name");
+  
+  // PWA Contact Picker API check & listener
+  const selectContactBtn = document.getElementById("btn-select-contact");
+  if (selectContactBtn) {
+    if ('contacts' in navigator && 'ContactsManager' in window) {
+      selectContactBtn.style.display = "inline-block";
+      
+      selectContactBtn.addEventListener("click", async () => {
+        try {
+          const props = ['name', 'tel'];
+          const opts = { multiple: false };
+          const contacts = await navigator.contacts.select(props, opts);
+          
+          if (contacts && contacts.length > 0) {
+            const contact = contacts[0];
+            const name = (contact.name && contact.name.length > 0) ? contact.name[0] : "";
+            const tel = (contact.tel && contact.tel.length > 0) ? contact.tel[0] : "";
+            
+            // Clean phone number: remove any non-digit character (keep only numbers)
+            let cleanTel = tel.replace(/[^0-9]/g, "");
+            
+            // Clean country prefix (+91 or 91) if it's 12 digits or starts with 91
+            if (cleanTel.length === 12 && cleanTel.startsWith("91")) {
+              cleanTel = cleanTel.substring(2);
+            } else if (cleanTel.length > 10 && cleanTel.startsWith("0")) {
+              cleanTel = cleanTel.substring(1);
+            }
+            
+            if (name) nameInput.value = name;
+            if (cleanTel) {
+              phoneInput.value = cleanTel;
+              // Dispatch input event so the customer autosearch listener fires!
+              phoneInput.dispatchEvent(new Event("input"));
+            }
+            showToast("Contact selected successfully!", "success");
+          }
+        } catch (err) {
+          console.error("Contact selection failed:", err);
+          showToast("Contact access cancelled / denied.", "info");
+        }
+      });
+    }
+  }
   
   if (phoneInput && nameInput) {
     phoneInput.addEventListener("input", () => {
@@ -2783,28 +2846,60 @@ function setupSettingsEventListeners() {
     const file = e.target.files[0];
     if (!file) return;
 
+    // Show visual confirmation prompt
+    const confirmMsg = "This will replace current local data. Continue?";
+    if (!confirm(confirmMsg)) {
+      restoreInput.value = ""; // Clear file selection
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       showToast("Reading backup file...", "info");
-      const success = await DB.restoreFromJSON(event.target.result);
-      if (success) {
-        showToast("Database fully restored from backup!", "success");
-        renderActivePage();
-      } else {
-        showToast("Error! File is corrupted or invalid.", "error");
+      try {
+        const data = JSON.parse(event.target.result);
+        if (!data || typeof data !== "object") {
+          throw new Error("Backup file is not a valid JSON object.");
+        }
+        if (!Array.isArray(data.products) || !Array.isArray(data.customers) || !Array.isArray(data.invoices)) {
+          throw new Error("Invalid schema: missing core collections.");
+        }
+
+        const success = await DB.restoreFromJSON(event.target.result);
+        if (success) {
+          sessionStorage.setItem("pwa_restore_success", "true");
+          window.location.reload();
+        } else {
+          showToast("Error! Failed to restore database.", "error");
+          restoreInput.value = "";
+        }
+      } catch (err) {
+        showToast("Error! Invalid backup JSON: " + err.message, "error");
+        restoreInput.value = "";
       }
+    };
+    reader.onerror = () => {
+      showToast("Error reading file!", "error");
+      restoreInput.value = "";
     };
     reader.readAsText(file);
   });
 
   // Hard Reset Local Database
   resetBtn.addEventListener("click", () => {
-    const confirmMsg = "CRITICAL WARNING: This will delete all products, invoices, and Khatabook records permanently! Do you want to proceed?";
+    const confirmMsg = "CRITICAL WARNING: This will permanently delete all store catalog products, sales invoices, customer lists, and Khatabook ledger entries. This action CANNOT be undone!\n\nAre you absolutely sure you want to proceed?";
+    
     if (confirm(confirmMsg)) {
-      showToast("Resetting database...", "info");
-      DB.resetToDefaults();
-      showToast("Local database wiped & restored to default samples!", "success");
-      renderActivePage();
+      const userInput = prompt("To confirm deleting all local data, please type the word RESET:");
+      
+      if (userInput === "RESET") {
+        showToast("Resetting database...", "info");
+        DB.resetToDefaults();
+        sessionStorage.setItem("pwa_reset_success", "true");
+        window.location.reload();
+      } else {
+        showToast("Reset aborted. The word typed was incorrect.", "info");
+      }
     }
   });
 
@@ -2931,6 +3026,36 @@ function setupSettingsEventListeners() {
       showToast("UPI Payment Settings updated!", "success");
     });
   }
+
+  // Add Sample Products button
+  const addSampleBtn = document.getElementById("btn-add-sample-products");
+  if (addSampleBtn) {
+    addSampleBtn.addEventListener("click", () => {
+      showToast("Adding sample products & categories...", "info");
+      DB.addSampleProducts();
+      showToast("Sample products & transaction data successfully loaded!", "success");
+      
+      // Re-populate and render page
+      populateCategoryDropdowns();
+      renderActivePage();
+    });
+  }
+
+  // Clear Sample Data button
+  const clearSampleBtn = document.getElementById("btn-clear-sample-data");
+  if (clearSampleBtn) {
+    clearSampleBtn.addEventListener("click", () => {
+      if (confirm("Are you sure you want to clear all sample data? This will empty all products, categories, customers, and invoices, keeping only your shop profile.")) {
+        showToast("Clearing all data records...", "info");
+        DB.clearSampleData();
+        showToast("All sample products and transaction records cleared!", "success");
+        
+        // Re-populate and render page
+        populateCategoryDropdowns();
+        renderActivePage();
+      }
+    });
+  }
 }
 
 function renderSettings() {
@@ -2959,9 +3084,9 @@ function renderSettings() {
   }
 
   // Populate UPI Settings
-  document.getElementById("settings-upi-name").value = shop.upiName || "Gurbhej Singh";
-  document.getElementById("settings-upi-phone").value = shop.upiPhone || "7973679747";
-  document.getElementById("settings-upi-id").value = shop.upiId || "paytm.s1sd9a3@pty";
+  document.getElementById("settings-upi-name").value = shop.upiName || "";
+  document.getElementById("settings-upi-phone").value = shop.upiPhone || "";
+  document.getElementById("settings-upi-id").value = shop.upiId || "";
 
   // Pre-load base64 and show preview
   const previewContainer = document.getElementById("upi-qr-preview-container");
@@ -3068,6 +3193,180 @@ function setupCustomersEventListeners() {
   if (searchInput) {
     searchInput.addEventListener("input", () => {
       renderCustomers();
+    });
+  }
+}
+
+// ==========================================
+// FIRST-TIME SHOP PROFILE SETUP & EDIT
+// ==========================================
+let setupQrBase64 = "";
+
+function checkFirstTimeProfile() {
+  const shop = DB.getSettings();
+  if (!shop.profileCompleted) {
+    // Populate form fields with existing settings if any
+    document.getElementById("setup-shop-name").value = shop.shopName || "";
+    document.getElementById("setup-owner-name").value = shop.ownerName || "";
+    document.getElementById("setup-shop-phone").value = shop.shopPhone || "";
+    document.getElementById("setup-shop-address").value = shop.shopAddress || "";
+    document.getElementById("setup-shop-tagline").value = shop.shopTagline || "";
+    document.getElementById("setup-upi-name").value = shop.upiName || "";
+    document.getElementById("setup-upi-phone").value = shop.upiPhone || "";
+    document.getElementById("setup-upi-id").value = shop.upiId || "";
+    
+    setupQrBase64 = shop.upiQrImage || "";
+    const preview = document.getElementById("setup-qr-preview");
+    const container = document.getElementById("setup-qr-preview-container");
+    const removeBtn = document.getElementById("btn-setup-remove-qr");
+    
+    if (setupQrBase64) {
+      if (preview) preview.src = setupQrBase64;
+      if (container) container.style.display = "block";
+      if (removeBtn) removeBtn.style.display = "inline-block";
+    } else {
+      if (preview) preview.src = "";
+      if (container) container.style.display = "none";
+      if (removeBtn) removeBtn.style.display = "none";
+    }
+    
+    // Hide cancel/close button on mandatory setup
+    const closeBtn = document.getElementById("btn-setup-close");
+    if (closeBtn) closeBtn.style.display = "none";
+    
+    // Open Setup Screen
+    const overlay = document.getElementById("profile-setup-overlay");
+    if (overlay) overlay.style.display = "block";
+  }
+}
+
+function setupProfileSetupEventListeners() {
+  const setupForm = document.getElementById("profile-setup-form");
+  const setupQrFile = document.getElementById("setup-upi-qr");
+  const setupRemoveQrBtn = document.getElementById("btn-setup-remove-qr");
+  const setupQrPreview = document.getElementById("setup-qr-preview");
+  const setupQrPreviewContainer = document.getElementById("setup-qr-preview-container");
+  const setupResetBtn = document.getElementById("btn-setup-reset");
+  const setupCloseBtn = document.getElementById("btn-setup-close");
+  const editProfileBtn = document.getElementById("btn-edit-full-profile");
+
+  // QR Image uploader inside Setup screen
+  if (setupQrFile) {
+    setupQrFile.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      if (!file.type.startsWith("image/")) {
+        showToast("Please upload an image file only!", "error");
+        setupQrFile.value = "";
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setupQrBase64 = event.target.result;
+        if (setupQrPreview) setupQrPreview.src = setupQrBase64;
+        if (setupQrPreviewContainer) setupQrPreviewContainer.style.display = "block";
+        if (setupRemoveQrBtn) setupRemoveQrBtn.style.display = "inline-block";
+        showToast("UPI QR Image uploaded!", "success");
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // QR Image remover inside Setup screen
+  if (setupRemoveQrBtn) {
+    setupRemoveQrBtn.addEventListener("click", () => {
+      setupQrBase64 = "";
+      if (setupQrFile) setupQrFile.value = "";
+      if (setupQrPreview) setupQrPreview.src = "";
+      if (setupQrPreviewContainer) setupQrPreviewContainer.style.display = "none";
+      if (setupRemoveQrBtn) setupRemoveQrBtn.style.display = "none";
+      showToast("UPI QR Image removed!", "info");
+    });
+  }
+
+  // Reset Setup fields
+  if (setupResetBtn) {
+    setupResetBtn.addEventListener("click", () => {
+      if (setupForm) setupForm.reset();
+      setupQrBase64 = "";
+      if (setupQrPreview) setupQrPreview.src = "";
+      if (setupQrPreviewContainer) setupQrPreviewContainer.style.display = "none";
+      if (setupRemoveQrBtn) setupRemoveQrBtn.style.display = "none";
+      showToast("Setup inputs cleared!", "info");
+    });
+  }
+
+  // Close Setup overlay
+  if (setupCloseBtn) {
+    setupCloseBtn.addEventListener("click", () => {
+      const overlay = document.getElementById("profile-setup-overlay");
+      if (overlay) overlay.style.display = "none";
+    });
+  }
+
+  // Profile Save Form Submit
+  if (setupForm) {
+    setupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const updated = {
+        profileCompleted: true,
+        shopName: document.getElementById("setup-shop-name").value.trim(),
+        ownerName: document.getElementById("setup-owner-name").value.trim(),
+        shopPhone: document.getElementById("setup-shop-phone").value.trim(),
+        shopAddress: document.getElementById("setup-shop-address").value.trim(),
+        shopTagline: document.getElementById("setup-shop-tagline").value.trim(),
+        upiName: document.getElementById("setup-upi-name").value.trim(),
+        upiPhone: document.getElementById("setup-upi-phone").value.trim(),
+        upiId: document.getElementById("setup-upi-id").value.trim(),
+        upiQrImage: setupQrBase64
+      };
+      
+      showToast("Saving shop profile...", "info");
+      DB.saveSettings(updated);
+      showToast("Shop profile successfully saved!", "success");
+      
+      const overlay = document.getElementById("profile-setup-overlay");
+      if (overlay) overlay.style.display = "none";
+      
+      // Sync controls and render dashboard
+      renderSettings();
+      switchPage("dashboard");
+    });
+  }
+
+  // Bind settings "Edit Store Profile" banner button
+  if (editProfileBtn) {
+    editProfileBtn.addEventListener("click", () => {
+      const shop = DB.getSettings();
+      
+      document.getElementById("setup-shop-name").value = shop.shopName || "";
+      document.getElementById("setup-owner-name").value = shop.ownerName || "";
+      document.getElementById("setup-shop-phone").value = shop.shopPhone || "";
+      document.getElementById("setup-shop-address").value = shop.shopAddress || "";
+      document.getElementById("setup-shop-tagline").value = shop.shopTagline || "";
+      document.getElementById("setup-upi-name").value = shop.upiName || "";
+      document.getElementById("setup-upi-phone").value = shop.upiPhone || "";
+      document.getElementById("setup-upi-id").value = shop.upiId || "";
+      
+      setupQrBase64 = shop.upiQrImage || "";
+      if (setupQrBase64) {
+        if (setupQrPreview) setupQrPreview.src = setupQrBase64;
+        if (setupQrPreviewContainer) setupQrPreviewContainer.style.display = "block";
+        if (setupRemoveQrBtn) setupRemoveQrBtn.style.display = "inline-block";
+      } else {
+        if (setupQrPreview) setupQrPreview.src = "";
+        if (setupQrPreviewContainer) setupQrPreviewContainer.style.display = "none";
+        if (setupRemoveQrBtn) setupRemoveQrBtn.style.display = "none";
+      }
+      
+      // Make Cancel button visible in edit mode
+      if (setupCloseBtn) setupCloseBtn.style.display = "inline-block";
+      
+      const overlay = document.getElementById("profile-setup-overlay");
+      if (overlay) overlay.style.display = "block";
     });
   }
 }
