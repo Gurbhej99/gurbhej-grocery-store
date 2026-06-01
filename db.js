@@ -29,9 +29,9 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const DEFAULT_CUSTOMERS = [
-  { id: "cust_gurbhej", name: "Gurbhej Singh", phone: "9876543210", pendingBalance: 520, createdAt: "2026-05-15T10:00:00Z" },
-  { id: "cust_amit", name: "Amit Kumar", phone: "9812345678", pendingBalance: 0, createdAt: "2026-05-18T12:30:00Z" },
-  { id: "cust_rajwinder", name: "Rajwinder Kaur", phone: "9855566677", pendingBalance: 1250, createdAt: "2026-05-20T14:45:00Z" }
+  { id: "cust_gurbhej", name: "Gurbhej Singh", phone: "9876543210", pendingBalance: 520, totalBills: 1, totalPurchase: 520, lastVisit: "2026-06-01", createdAt: "2026-05-15T10:00:00Z" },
+  { id: "cust_amit", name: "Amit Kumar", phone: "9812345678", pendingBalance: 0, totalBills: 1, totalPurchase: 500, lastVisit: "2026-06-01", createdAt: "2026-05-18T12:30:00Z" },
+  { id: "cust_rajwinder", name: "Rajwinder Kaur", phone: "9855566677", pendingBalance: 1250, totalBills: 0, totalPurchase: 0, lastVisit: "-", createdAt: "2026-05-20T14:45:00Z" }
 ];
 
 const DEFAULT_INVOICES = [
@@ -146,9 +146,13 @@ class DatabaseEngine {
     if (!localStorage.getItem(this.getKey("settings"))) {
       const defaultSettings = {
         shopName: "Gurbhej Grocery Store",
-        shopPhone: "9876543210",
-        shopAddress: "Main Bazaar, Gurdaspur, Punjab, India",
-        shopTagline: "Fresh groceries & trusted service / ਤਾਜ਼ਾ ਰਾਸ਼ਨ, ਭਰੋਸੇਮੰਦ ਸੇਵਾ"
+        shopPhone: "",
+        shopAddress: "",
+        shopTagline: "Fresh groceries & trusted service / ਤਾਜ਼ਾ ਰਾਸ਼ਨ, ਭਰੋਸੇਮੰਦ ਸੇਵਾ",
+        upiName: "Gurbhej Singh",
+        upiPhone: "7973679747",
+        upiId: "paytm.s1sd9a3@pty",
+        upiQrImage: ""
       };
       localStorage.setItem(this.getKey("settings"), JSON.stringify(defaultSettings));
     }
@@ -531,12 +535,17 @@ class DatabaseEngine {
   // ==========================================
   getSettings() {
     const data = localStorage.getItem(this.getKey("settings"));
-    return data ? JSON.parse(data) : {
+    const defaults = {
       shopName: "Gurbhej Grocery Store",
-      shopPhone: "9876543210",
-      shopAddress: "Main Bazaar, Gurdaspur, Punjab, India",
-      shopTagline: "Fresh groceries & trusted service / ਤਾਜ਼ਾ ਰਾਸ਼ਨ, ਭਰੋਸੇਮੰਦ ਸੇਵਾ"
+      shopPhone: "",
+      shopAddress: "",
+      shopTagline: "Fresh groceries & trusted service / ਤਾਜ਼ਾ ਰਾਸ਼ਨ, ਭਰੋਸੇਮੰਦ ਸੇਵਾ",
+      upiName: "Gurbhej Singh",
+      upiPhone: "7973679747",
+      upiId: "paytm.s1sd9a3@pty",
+      upiQrImage: ""
     };
+    return data ? { ...defaults, ...JSON.parse(data) } : defaults;
   }
 
   saveSettings(settings) {

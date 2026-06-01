@@ -133,6 +133,26 @@ function transliterateText(text, lang) {
     .join(" ");
 }
 
+function getShopProfile() {
+  const settings = DB.getSettings();
+  
+  const shopName = settings.shopName && settings.shopName.trim() ? settings.shopName.trim() : "Update shop profile in Settings";
+  const shopTagline = settings.shopTagline && settings.shopTagline.trim() ? settings.shopTagline.trim() : "";
+  
+  const addressVal = settings.shopAddress ? settings.shopAddress.trim() : "";
+  const shopAddress = (addressVal && addressVal !== "Main Bazaar, Gurdaspur, Punjab, India" && addressVal !== "Main Bazaar, Gurdaspur, Punjab") ? addressVal : "Update shop profile in Settings";
+  
+  const phoneVal = settings.shopPhone ? settings.shopPhone.trim() : "";
+  const shopPhone = (phoneVal && phoneVal !== "9876543210") ? phoneVal : "Update shop profile in Settings";
+  
+  return {
+    shopName,
+    shopTagline,
+    shopAddress,
+    shopPhone
+  };
+}
+
 // Unified Helper to clean and format multilingual product names in a single line
 function formatProductName(product) {
   if (!product) return "";
@@ -285,6 +305,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupKhatabookEventListeners();
   setupReportsEventListeners();
   setupSettingsEventListeners();
+  setupCustomersEventListeners();
 
   // Draw initial page
   renderActivePage();
@@ -314,6 +335,16 @@ function switchPage(pageId) {
     }
   });
 
+  // Highlight 'More' button if active page is inside its popover drawer
+  const moreBtn = document.getElementById("mobile-nav-more-btn");
+  if (moreBtn) {
+    if (["categories", "khatabook", "settings", "customers"].includes(pageId)) {
+      moreBtn.classList.add("active");
+    } else {
+      moreBtn.classList.remove("active");
+    }
+  }
+
   // Switch display panel
   document.querySelectorAll(".page-view").forEach(view => {
     if (view.id === `${pageId}-view`) {
@@ -337,7 +368,8 @@ function switchPage(pageId) {
     categories: "Manage Store Inventory Categories & Multilingual Names",
     khatabook: "Udhaar Ledger Tracker & GPay Payment Receipts",
     reports: "Interactive Daily/Monthly Sales Analytical Statements",
-    settings: "Shop Information Details & Firebase Real-time Sync"
+    settings: "Shop Information Details & Firebase Real-time Sync",
+    customers: "CRM Customer Profile Database & Statistics"
   };
   subtitleEl.textContent = subtitles[pageId];
 
@@ -367,6 +399,9 @@ function renderActivePage() {
       break;
     case "settings":
       renderSettings();
+      break;
+    case "customers":
+      renderCustomers();
       break;
   }
 }
@@ -485,6 +520,28 @@ function drawWeeklySalesChart(invoices) {
 
     const dayName = d.toLocaleDateString(state.activeLang === "en" ? "en-US" : (state.activeLang === "hi" ? "hi-IN" : "pa-IN"), { weekday: 'short' });
     dataPoints.push({ label: dayName, value: salesTotal });
+  }
+
+  const totalSales = dataPoints.reduce((sum, p) => sum + p.value, 0);
+  const parent = chartSvg.parentNode;
+  const existing = parent.querySelector(".chart-empty-state");
+  if (existing) existing.remove();
+
+  if (totalSales === 0) {
+    chartSvg.style.display = "none";
+    const placeholder = document.createElement("div");
+    placeholder.className = "chart-empty-state";
+    placeholder.style.cssText = "display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; color: var(--text-muted); font-size: 0.95rem; font-weight: 500; text-align: center; width: 100%;";
+    placeholder.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="40" height="40" style="margin-bottom: 8px; stroke-width: 1.5; color: var(--border);">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <span data-i18n="noSalesData">${getTranslation("noSalesData") || "No sales data available"}</span>
+    `;
+    parent.appendChild(placeholder);
+    return;
+  } else {
+    chartSvg.style.display = "block";
   }
 
   // Chart coordinates
@@ -622,7 +679,14 @@ function drawTopProductsTally(invoices) {
     .slice(0, 5);
 
   if (topProducts.length === 0) {
-    container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem;" data-i18n="noData">${getTranslation("noData")}</div>`;
+    container.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 180px; color: var(--text-muted); font-size: 0.95rem; font-weight: 500; text-align: center; width: 100%;">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="40" height="40" style="margin-bottom: 8px; stroke-width: 1.5; color: var(--border);">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+        <span data-i18n="noSalesData">${getTranslation("noSalesData") || "No sales data available"}</span>
+      </div>
+    `;
     return;
   }
 
@@ -700,6 +764,49 @@ function setupBillingEventListeners() {
   discountInput.addEventListener("input", () => {
     recalculateCartTotals();
   });
+
+  // Customer phone auto-fill search & purchase history badge controller
+  const phoneInput = document.getElementById("billing-customer-phone");
+  const nameInput = document.getElementById("billing-customer-name");
+  
+  if (phoneInput && nameInput) {
+    phoneInput.addEventListener("input", () => {
+      const phoneVal = phoneInput.value.trim();
+      const hint = document.getElementById("billing-customer-history-hint");
+      
+      if (phoneVal.length === 0) {
+        nameInput.value = "Walk-in Customer";
+      }
+      
+      if (phoneVal.length >= 3) {
+        const customers = DB.getCustomers();
+        const found = customers.find(c => c.phone === phoneVal);
+        
+        if (found) {
+          nameInput.value = found.name;
+          state.selectedBillingCustomerId = found.id;
+          
+          if (hint) {
+            hint.textContent = `Registered Customer: Purchased ${found.totalBills || 0} times previously (Total spent: ₹${(found.totalPurchase || 0).toFixed(2)})`;
+            hint.style.display = "block";
+          }
+          
+          const dropdown = document.getElementById("billing-customer-dropdown");
+          if (dropdown) dropdown.value = found.id;
+        } else {
+          if (hint) {
+            hint.style.display = "none";
+          }
+          state.selectedBillingCustomerId = "";
+        }
+      } else {
+        if (hint) {
+          hint.style.display = "none";
+        }
+        state.selectedBillingCustomerId = "";
+      }
+    });
+  }
 
   // Bind Cash / Udhaar Buttons
   document.getElementById("pay-mode-cash").addEventListener("click", () => {
@@ -1040,22 +1147,64 @@ async function generateInvoice() {
     return;
   }
 
-  let customer = null;
-  if (state.activeBillingMode === "udhaar") {
-    if (!state.selectedBillingCustomerId) {
-      showToast("Select customer to log Credit / Udhaar!", "error");
-      return;
-    }
-    customer = DB.getCustomers().find(c => c.id === state.selectedBillingCustomerId);
-    if (!customer) {
-      showToast("Selected customer not found.", "error");
-      return;
-    }
-  }
-
   const subtotal = state.cart.reduce((sum, item) => sum + item.amount, 0);
   const discount = parseFloat(document.getElementById("summary-discount-input").value) || 0;
   const grandTotal = subtotal - discount;
+
+  const inputName = document.getElementById("billing-customer-name").value.trim() || "Walk-in Customer";
+  const inputPhone = document.getElementById("billing-customer-phone").value.trim();
+
+  let resolvedCustomerId = null;
+
+  if (inputPhone) {
+    const customers = DB.getCustomers();
+    const foundCust = customers.find(c => c.phone === inputPhone);
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    if (foundCust) {
+      foundCust.name = inputName;
+      foundCust.totalBills = (foundCust.totalBills || 0) + 1;
+      foundCust.totalPurchase = (foundCust.totalPurchase || 0) + grandTotal;
+      foundCust.lastVisit = todayStr;
+      await DB.saveCustomer(foundCust);
+      resolvedCustomerId = foundCust.id;
+    } else {
+      const newCust = {
+        id: "cust_" + Date.now(),
+        name: inputName,
+        phone: inputPhone,
+        pendingBalance: 0, // saveInvoice will adjust it if it's udhaar
+        totalBills: 1,
+        totalPurchase: grandTotal,
+        lastVisit: todayStr,
+        createdAt: new Date().toISOString()
+      };
+      await DB.saveCustomer(newCust);
+      resolvedCustomerId = newCust.id;
+    }
+  } else {
+    // No phone number
+    if (state.activeBillingMode === "udhaar") {
+      if (state.selectedBillingCustomerId) {
+        const foundCust = DB.getCustomers().find(c => c.id === state.selectedBillingCustomerId);
+        if (foundCust) {
+          const todayStr = new Date().toISOString().split("T")[0];
+          foundCust.name = inputName;
+          foundCust.totalBills = (foundCust.totalBills || 0) + 1;
+          foundCust.totalPurchase = (foundCust.totalPurchase || 0) + grandTotal;
+          foundCust.lastVisit = todayStr;
+          await DB.saveCustomer(foundCust);
+          resolvedCustomerId = foundCust.id;
+        } else {
+          showToast("Selected customer not found in database.", "error");
+          return;
+        }
+      } else {
+        showToast("Select or register a customer for Udhaar (Credit) payment!", "error");
+        return;
+      }
+    }
+  }
 
   // Auto-generate invoice serial
   const invoices = DB.getInvoices();
@@ -1064,15 +1213,12 @@ async function generateInvoice() {
     : "GS-1001";
 
   const shopSettings = DB.getSettings();
-  
-  const inputName = document.getElementById("billing-customer-name").value.trim() || "Walk-in Customer";
-  const inputPhone = document.getElementById("billing-customer-phone").value.trim();
 
   const invoice = {
     invoiceNo: nextInvNum,
     date: new Date().toISOString().split("T")[0],
     time: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }),
-    customerId: customer ? customer.id : null,
+    customerId: resolvedCustomerId,
     customerName: inputName,
     customerPhone: inputPhone,
     items: [...state.cart],
@@ -1094,6 +1240,10 @@ async function generateInvoice() {
   // Reset fields to default
   document.getElementById("billing-customer-name").value = "Walk-in Customer";
   document.getElementById("billing-customer-phone").value = "";
+  state.selectedBillingCustomerId = "";
+  
+  const hint = document.getElementById("billing-customer-history-hint");
+  if (hint) hint.style.display = "none";
 
   // Show Thermal slip Modal
   openInvoiceModal(savedInv);
@@ -1102,13 +1252,13 @@ async function generateInvoice() {
 
 function openInvoiceModal(invoice) {
   state.currentInvoice = invoice;
-  const shop = DB.getSettings();
+  const shop = getShopProfile();
 
   // Populate Shop metadata
   document.getElementById("invoice-shop-name").textContent = shop.shopName;
   document.getElementById("invoice-shop-tagline").textContent = shop.shopTagline || "";
   document.getElementById("invoice-shop-address").textContent = shop.shopAddress || "";
-  document.getElementById("invoice-shop-phone").textContent = `Phone: ${shop.shopPhone}`;
+  document.getElementById("invoice-shop-phone").textContent = shop.shopPhone ? `Phone: ${shop.shopPhone}` : "";
 
   // Populate Invoice metadata
   document.getElementById("invoice-no-val").textContent = invoice.invoiceNo;
@@ -1151,12 +1301,48 @@ function openInvoiceModal(invoice) {
   
   // Format Payment mode title
   const modeVal = document.getElementById("invoice-paymode-val");
+  const upiSection = document.getElementById("invoice-upi-section");
   if (invoice.paymentMode === "udhaar") {
     modeVal.textContent = "UDHAAR (CREDIT / PENDING)";
     modeVal.style.color = "var(--danger)";
+
+    // Populate UPI dynamic block
+    const upiName = shop.upiName || "Gurbhej Singh";
+    const upiPhone = shop.upiPhone || "7973679747";
+    const upiId = shop.upiId || "paytm.s1sd9a3@pty";
+    
+    document.getElementById("invoice-upi-name-val").textContent = upiName;
+    document.getElementById("invoice-upi-phone-val").textContent = upiPhone;
+    document.getElementById("invoice-upi-id-val").textContent = upiId;
+    document.getElementById("invoice-upi-amount-val").textContent = invoice.total.toFixed(2);
+
+    const qrContainer = document.getElementById("invoice-upi-qr-container");
+    if (qrContainer) {
+      qrContainer.innerHTML = "";
+      if (shop.upiQrImage) {
+        const img = document.createElement("img");
+        img.src = shop.upiQrImage;
+        img.className = "invoice-upi-qr-img";
+        img.alt = "UPI QR Code";
+        qrContainer.appendChild(img);
+      } else {
+        const img = document.createElement("img");
+        const cleanName = encodeURIComponent(upiName);
+        const upiString = `upi://pay?pa=${upiId}&pn=${cleanName}&am=${invoice.total.toFixed(2)}&cu=INR`;
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiString)}`;
+        img.className = "invoice-upi-qr-img";
+        img.alt = "UPI QR Code";
+        img.onerror = () => {
+          qrContainer.innerHTML = `<div style="border: 2px dashed #000; padding: 12px; font-size: 10px; width: 150px; font-family: monospace;">Scan QR not available offline without custom upload</div>`;
+        };
+        qrContainer.appendChild(img);
+      }
+    }
+    if (upiSection) upiSection.style.display = "flex";
   } else {
     modeVal.textContent = "CASH (PAID)";
     modeVal.style.color = "var(--success)";
+    if (upiSection) upiSection.style.display = "none";
   }
 
   openModal("modal-invoice-slip");
@@ -1210,8 +1396,15 @@ function generatePDFDocument() {
 
   // Monospace font styling at 8px size: 40 characters wide fits standard thermal width perfectly.
   // Dynamic page height based on item counts:
+  const isUdhaar = invoice.paymentMode === "udhaar";
+  const settings = DB.getSettings();
+  const hasQr = !!settings.upiQrImage;
+  
   const itemHeight = 4.5;
-  const baseHeight = invoice.customerPhone ? 119 : 115;
+  let baseHeight = invoice.customerPhone ? 119 : 115;
+  if (isUdhaar) {
+    baseHeight += 30; // Compact side-by-side layout takes only 30mm extra height!
+  }
   const pageHeight = baseHeight + (invoice.items.length * itemHeight);
   
   const doc = new jsPDF({
@@ -1219,22 +1412,30 @@ function generatePDFDocument() {
     format: [80, pageHeight]
   });
 
+  const shop = getShopProfile();
+
   doc.setFont("courier", "bold");
   doc.setFontSize(10);
-  doc.text("Gurbhej Grocery Store", 40, 10, { align: "center" });
+  doc.text(shop.shopName, 40, 10, { align: "center" });
 
   doc.setFont("courier", "normal");
   doc.setFontSize(8);
-  doc.text("Fresh groceries and trusted service", 40, 15, { align: "center" });
-  doc.text("Main Bazaar, Gurdaspur, Punjab, India", 40, 19, { align: "center" });
-  doc.text("Phone: 9876543210", 40, 23, { align: "center" });
+  
+  let headerY = 15;
+  if (shop.shopTagline) {
+    doc.text(shop.shopTagline, 40, headerY, { align: "center" });
+    headerY += 4;
+  }
+  doc.text(shop.shopAddress, 40, headerY, { align: "center" });
+  headerY += 4;
+  doc.text(shop.shopPhone ? `Phone: ${shop.shopPhone}` : "", 40, headerY, { align: "center" });
 
   doc.text("----------------------------------------", 40, 27, { align: "center" });
   
   doc.text(`Invoice No : ${invoice.invoiceNo}`, 8, 32);
   doc.text(`Date & Time: ${invoice.date} ${invoice.time}`, 8, 36);
   
-  const cleanCustomerName = getEnglishName(invoice.customerName);
+  const cleanCustomerName = getEnglishName(invoice.customerName).substring(0, 25);
   doc.text(`Customer   : ${cleanCustomerName}`, 8, 40);
 
   let headerOffset = 44;
@@ -1277,21 +1478,77 @@ function generatePDFDocument() {
 
   const subtotalVal = parseFloat(invoice.subtotal);
   const subtotalText = "Rs." + (subtotalVal % 1 === 0 ? subtotalVal.toFixed(0) : subtotalVal.toFixed(2));
-  doc.text(`Subtotal: ${subtotalText}`, 8, y);
+  const subtotalLine = padEnd("Subtotal", 40 - subtotalText.length) + subtotalText;
+  doc.text(subtotalLine, 8, y);
   y += 4;
 
   const discountVal = parseFloat(invoice.discount);
   const discountText = "Rs." + (discountVal % 1 === 0 ? discountVal.toFixed(0) : discountVal.toFixed(2));
-  doc.text(`Discount: ${discountText}`, 8, y);
+  const discountLine = padEnd("Discount", 40 - discountText.length) + discountText;
+  doc.text(discountLine, 8, y);
   y += 4;
   
   doc.setFont("courier", "bold");
   const totalVal = parseFloat(invoice.total);
   const totalText = "Rs." + (totalVal % 1 === 0 ? totalVal.toFixed(0) : totalVal.toFixed(2));
-  doc.text(`TOTAL   : ${totalText}`, 8, y);
+  const totalLine = padEnd("TOTAL", 40 - totalText.length) + totalText;
+  doc.text(totalLine, 8, y);
   y += 5;
-  doc.text(`MODE    : ${invoice.paymentMode.toUpperCase()}`, 8, y);
+  
+  const modeText = invoice.paymentMode.toUpperCase();
+  const modeLine = padEnd("MODE", 40 - modeText.length) + modeText;
+  doc.text(modeLine, 8, y);
   y += 6;
+
+  if (isUdhaar) {
+    y += 2;
+    doc.text("----------------------------------------", 40, y, { align: "center" });
+    y += 4;
+
+    doc.setFont("courier", "bold");
+    doc.text("Pending Payment", 40, y, { align: "center" });
+    const startY = y + 5;
+
+    const upiName = settings.upiName || "Gurbhej Singh";
+    const upiPhone = settings.upiPhone || "7973679747";
+    const upiId = settings.upiId || "paytm.s1sd9a3@pty";
+
+    // Left side: UPI details
+    doc.setFont("courier", "normal");
+    doc.text(`Name : ${upiName}`, 8, startY);
+    doc.text(`Phone: ${upiPhone}`, 8, startY + 4);
+    doc.text(`UPIID: ${upiId}`, 8, startY + 8);
+    
+    doc.setFont("courier", "bold");
+    doc.text(`Due  : Rs.${totalVal.toFixed(2)}`, 8, startY + 13);
+    
+    // Right side: QR Image (18.52mm x 18.52mm = 70px x 70px)
+    if (settings.upiQrImage) {
+      try {
+        doc.addImage(settings.upiQrImage, "PNG", 52, startY - 2, 18.52, 18.52);
+      } catch (err) {
+        console.error("Error drawing QR image to PDF:", err);
+        doc.setFont("courier", "normal");
+        doc.text("[QR Code]", 61.26, startY + 8, { align: "center" });
+      }
+    } else {
+      doc.rect(52, startY - 2, 18.52, 18.52);
+      doc.setFont("courier", "normal");
+      doc.setFontSize(6);
+      doc.text("No QR Code", 61.26, startY + 5, { align: "center" });
+      doc.text("Uploaded", 61.26, startY + 10, { align: "center" });
+      doc.setFontSize(8);
+    }
+    
+    doc.setFont("courier", "bold");
+    doc.text("Scan to Pay", 61.26, startY + 22, { align: "center" });
+    
+    // Clear both columns
+    y = startY + 25;
+    doc.setFont("courier", "normal");
+    doc.text("----------------------------------------", 40, y, { align: "center" });
+    y += 5;
+  }
 
   doc.setFont("courier", "normal");
   doc.text("Thank you for shopping! Visit again.", 40, y, { align: "center" });
@@ -1346,10 +1603,18 @@ function shareInvoiceWhatsApp() {
   const invoice = state.currentInvoice;
   if (!invoice) return;
 
-  const shop = DB.getSettings();
+  const shop = getShopProfile();
   
   // Format WhatsApp message block exactly as requested
-  let msg = `Gurbhej Grocery Store\n`;
+  let msg = `${shop.shopName}\n`;
+  if (shop.shopTagline) msg += `${shop.shopTagline}\n`;
+  if (shop.shopAddress && shop.shopAddress !== "Update shop profile in Settings") {
+    msg += `Address: ${shop.shopAddress}\n`;
+  }
+  if (shop.shopPhone && shop.shopPhone !== "Update shop profile in Settings") {
+    msg += `Phone: ${shop.shopPhone}\n`;
+  }
+  msg += `\n`;
   msg += `Invoice No: ${invoice.invoiceNo}\n`;
   msg += `Date: ${invoice.date} ${invoice.time}\n\n`;
   msg += `Customer: ${invoice.customerName}\n\n`;
@@ -1362,7 +1627,23 @@ function shareInvoiceWhatsApp() {
   });
 
   msg += `\nGrand Total: ₹${invoice.total}\n\n`;
-  msg += `Thank you for shopping with Gurbhej Grocery Store.`;
+  
+  if (invoice.paymentMode === "udhaar") {
+    // Note: UPI configurations are fetched from the complete DB settings object
+    const settings = DB.getSettings();
+    const upiName = settings.upiName || "Gurbhej Singh";
+    const upiPhone = settings.upiPhone || "7973679747";
+    const upiId = settings.upiId || "paytm.s1sd9a3@pty";
+    
+    msg += `Pending Udhaar Payment:\n`;
+    msg += `Scan QR or pay via UPI:\n`;
+    msg += `Name: ${upiName}\n`;
+    msg += `Phone: ${upiPhone}\n`;
+    msg += `UPI ID: ${upiId}\n`;
+    msg += `Amount Due: ₹${invoice.total.toFixed(2)}\n\n`;
+  }
+
+  msg += `Thank you for shopping with ${shop.shopName}.`;
 
   const urlEncodedMsg = encodeURIComponent(msg);
   const cleanPhone = invoice.customerPhone ? invoice.customerPhone.replace(/[^0-9]/g, "") : "";
@@ -1853,6 +2134,19 @@ function setupKhatabookEventListeners() {
   document.getElementById("khatabook-customer-search").addEventListener("input", () => {
     renderKhatabookCustomers();
   });
+
+  // Mobile Back button click to return to customer list
+  const backBtn = document.getElementById("btn-back-to-customers");
+  if (backBtn) {
+    backBtn.addEventListener("click", () => {
+      const layout = document.querySelector(".khatabook-layout");
+      if (layout) {
+        layout.classList.remove("show-details");
+      }
+      state.selectedKhatabookCustomerId = "";
+      document.querySelectorAll(".customer-card-item").forEach(item => item.classList.remove("active"));
+    });
+  }
 }
 
 function renderKhatabook() {
@@ -1914,6 +2208,12 @@ function selectCustomerForLedger(customerId) {
   state.selectedKhatabookCustomerId = customerId;
   const customer = DB.getCustomers().find(c => c.id === customerId);
   if (!customer) return;
+
+  // Set mobile show-details class
+  const layout = document.querySelector(".khatabook-layout");
+  if (layout) {
+    layout.classList.add("show-details");
+  }
 
   // Toggle active views
   document.getElementById("ledger-empty-panel").style.display = "none";
@@ -2449,11 +2749,13 @@ function setupSettingsEventListeners() {
   // Save Shop profile submit
   profileForm.addEventListener("submit", (e) => {
     e.preventDefault();
+    const current = DB.getSettings();
     const updated = {
-      shopName: document.getElementById("settings-shop-name").value,
-      shopPhone: document.getElementById("settings-shop-phone").value,
-      shopAddress: document.getElementById("settings-shop-address").value,
-      shopTagline: DB.getSettings().shopTagline || ""
+      ...current,
+      shopName: document.getElementById("settings-shop-name").value.trim(),
+      shopPhone: document.getElementById("settings-shop-phone").value.trim(),
+      shopAddress: document.getElementById("settings-shop-address").value.trim(),
+      shopTagline: current.shopTagline || ""
     };
     
     showToast("Saving shop details...", "info");
@@ -2552,6 +2854,83 @@ function setupSettingsEventListeners() {
       showToast("Connection failed! Verify credentials.", "error");
     }
   });
+
+  // UPI Payment Settings Form Handlers
+  const upiForm = document.getElementById("settings-upi-form");
+  const upiQrFile = document.getElementById("settings-upi-qr-file");
+  const removeQrBtn = document.getElementById("btn-remove-upi-qr");
+  let upiQrBase64 = "";
+
+  // Preview helper
+  const updateQrPreview = (base64) => {
+    const previewContainer = document.getElementById("upi-qr-preview-container");
+    if (previewContainer) {
+      if (base64) {
+        previewContainer.innerHTML = `<img src="${base64}" style="width: 100%; height: 100%; object-fit: contain;">`;
+        if (removeQrBtn) removeQrBtn.style.display = "inline-flex";
+      } else {
+        previewContainer.innerHTML = `<span style="font-size: 0.7rem; color: var(--text-muted); text-align: center; padding: 4px;">No QR</span>`;
+        if (removeQrBtn) removeQrBtn.style.display = "none";
+      }
+    }
+  };
+
+  // Pre-load base64 for submission
+  if (upiForm) {
+    const cachedSettings = DB.getSettings();
+    upiQrBase64 = cachedSettings.upiQrImage || "";
+  }
+
+  // File Upload Input listener
+  if (upiQrFile) {
+    upiQrFile.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (!file.type.startsWith("image/")) {
+        showToast("Please upload an image file only!", "error");
+        upiQrFile.value = "";
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        upiQrBase64 = event.target.result;
+        updateQrPreview(upiQrBase64);
+        showToast("UPI QR Image uploaded!", "success");
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Remove QR Button listener
+  if (removeQrBtn) {
+    removeQrBtn.addEventListener("click", () => {
+      upiQrBase64 = "";
+      if (upiQrFile) upiQrFile.value = "";
+      updateQrPreview("");
+      showToast("UPI QR Image removed!", "info");
+    });
+  }
+
+  // Form Submit listener
+  if (upiForm) {
+    upiForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const current = DB.getSettings();
+      const updated = {
+        ...current,
+        upiName: document.getElementById("settings-upi-name").value.trim(),
+        upiPhone: document.getElementById("settings-upi-phone").value.trim(),
+        upiId: document.getElementById("settings-upi-id").value.trim(),
+        upiQrImage: upiQrBase64
+      };
+
+      showToast("Saving UPI Settings...", "info");
+      DB.saveSettings(updated);
+      showToast("UPI Payment Settings updated!", "success");
+    });
+  }
 }
 
 function renderSettings() {
@@ -2577,6 +2956,24 @@ function renderSettings() {
   } else {
     firebaseCheck.checked = false;
     firebaseFields.style.display = "none";
+  }
+
+  // Populate UPI Settings
+  document.getElementById("settings-upi-name").value = shop.upiName || "Gurbhej Singh";
+  document.getElementById("settings-upi-phone").value = shop.upiPhone || "7973679747";
+  document.getElementById("settings-upi-id").value = shop.upiId || "paytm.s1sd9a3@pty";
+
+  // Pre-load base64 and show preview
+  const previewContainer = document.getElementById("upi-qr-preview-container");
+  const removeQrBtn = document.getElementById("btn-remove-upi-qr");
+  if (previewContainer) {
+    if (shop.upiQrImage) {
+      previewContainer.innerHTML = `<img src="${shop.upiQrImage}" style="width: 100%; height: 100%; object-fit: contain;">`;
+      if (removeQrBtn) removeQrBtn.style.display = "inline-flex";
+    } else {
+      previewContainer.innerHTML = `<span style="font-size: 0.7rem; color: var(--text-muted); text-align: center; padding: 4px;">No QR</span>`;
+      if (removeQrBtn) removeQrBtn.style.display = "none";
+    }
   }
 }
 
@@ -2617,13 +3014,60 @@ function updateCloudStatusIndicator() {
   const indicator = document.getElementById("cloud-sync-indicator");
   const text = document.getElementById("cloud-sync-text");
 
-  if (!indicator || !text) return;
+  if (text) {
+    if (DB.isFirebaseEnabled()) {
+      if (indicator) indicator.className = "sync-dot active";
+      text.textContent = "Firebase Sync Active";
+    } else {
+      if (indicator) indicator.className = "sync-dot";
+      text.textContent = "Offline stand-alone Mode";
+    }
+  }
+}
 
-  if (DB.isFirebaseEnabled()) {
-    indicator.className = "sync-dot active";
-    text.textContent = "Firebase Sync Active";
-  } else {
-    indicator.className = "sync-dot";
-    text.textContent = "Offline stand-alone Mode";
+// ==========================================
+// CUSTOMERS CRM SYSTEM
+// ==========================================
+function renderCustomers() {
+  const customers = DB.getCustomers();
+  const searchInput = document.getElementById("customer-list-search-crm");
+  const query = (searchInput?.value || "").trim().toLowerCase();
+
+  const filtered = customers.filter(c => {
+    return c.name.toLowerCase().includes(query) || (c.phone && c.phone.includes(query));
+  });
+
+  const tally = document.getElementById("crm-total-tally");
+  if (tally) {
+    tally.textContent = `Total Customers: ${filtered.length}`;
+  }
+
+  const tbody = document.getElementById("crm-table-body");
+  if (tbody) {
+    tbody.innerHTML = "";
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">No customers found.</td></tr>`;
+    } else {
+      filtered.forEach(cust => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td style="font-weight: bold; color: var(--dark);">${cust.name}</td>
+          <td>${cust.phone || "-"}</td>
+          <td>${cust.totalBills || 0}</td>
+          <td style="font-weight: bold; color: var(--primary);">₹${(cust.totalPurchase || 0).toFixed(2)}</td>
+          <td>${cust.lastVisit || "-"}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  }
+}
+
+function setupCustomersEventListeners() {
+  const searchInput = document.getElementById("customer-list-search-crm");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      renderCustomers();
+    });
   }
 }

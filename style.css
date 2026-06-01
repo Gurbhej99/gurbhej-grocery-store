@@ -1660,6 +1660,16 @@ header {
   }
 }
 
+
+/* Desktop overrides to completely hide mobile navigation elements */
+@media (min-width: 769px) {
+  .mobile-bottom-nav,
+  #mobile-nav-more-btn,
+  .mobile-more-popover-overlay {
+    display: none !important;
+  }
+}
+
 /* ==========================================
    MOBILE BOTTOM NAVIGATION & DRAWER STYLES
    ========================================== */
@@ -1814,7 +1824,7 @@ header {
 
   #app-container {
     grid-template-columns: 1fr !important;
-    padding-bottom: 72px !important; /* Space for bottom nav */
+    padding-bottom: 80px !important; /* Space for bottom nav and sticky checkout button */
     max-width: 100% !important;
     overflow-x: hidden !important;
   }
@@ -1828,9 +1838,32 @@ header {
   }
 
   main {
-    padding: 16px !important;
+    padding: 12px !important;
     max-width: 100% !important;
     overflow-x: hidden !important;
+    padding-bottom: 100px !important; /* Keep bottom nav from covering content */
+  }
+
+  header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  #page-header-subtitle {
+    display: none !important; /* Recover vertical screen space */
+  }
+
+  .lang-selector {
+    padding: 2px !important;
+  }
+
+  .lang-btn {
+    padding: 4px 8px !important;
+    font-size: 0.75rem !important;
   }
 
   .btn {
@@ -1845,84 +1878,308 @@ header {
     font-size: 16px !important; /* Avoid auto-zoom on iOS Safari */
   }
 
+  /* Dashboard Cards & Layout */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    margin-bottom: 16px !important;
+  }
+
+  @media (max-width: 480px) {
+    .stats-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  .stat-card {
+    padding: 12px 14px !important;
+  }
+
+  .stat-title {
+    font-size: 0.75rem !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: break-word !important;
+    line-height: 1.2 !important;
+  }
+
+  .stat-value {
+    font-size: 1.5rem !important;
+  }
+
+  /* Store base metrics card styling on mobile to prevent layout clipping */
+  .stats-grid .stat-card:nth-child(5) .stat-value {
+    font-size: 1.25rem !important;
+    flex-wrap: wrap !important;
+    gap: 4px 8px !important;
+  }
+
   /* 2. Fast Billing Mobile UI */
   .billing-layout {
-    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
     gap: 16px !important;
   }
 
-  .billing-left-panel, .billing-cart-panel {
+  .billing-search-panel, .billing-cart-panel {
     width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
+    position: static !important;
+    overflow: visible !important;
   }
 
-  /* Product search query spanning 100% width */
-  .search-bar-wrapper {
-    width: 100% !important;
+  /* Compact Billing Search */
+  .billing-search-panel .card {
+    padding: 12px !important;
+    height: auto !important;
+    position: static !important;
   }
 
-  /* Quick pick items inside 2 columns */
+  .billing-search-input {
+    font-size: 0.95rem !important;
+    height: 40px !important;
+    min-height: auto !important;
+    padding-left: 38px !important;
+    border-radius: var(--radius-md) !important;
+  }
+
+  .search-box-container svg {
+    left: 12px !important;
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Fluid columns for Quick Picks */
   .quick-picks-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)) !important;
     gap: 8px !important;
+    height: auto !important;
   }
 
   .quick-pick-btn {
-    min-height: 52px;
-    padding: 8px !important;
-  }
-
-  /* Cart elements width fit and overflow fixes */
-  .cart-table-wrapper {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .cart-input {
-    width: 60px !important;
-    height: 36px !important;
     min-height: auto !important;
-    padding: 4px !important;
+    padding: 8px 4px !important;
+    gap: 2px !important;
+    border-radius: 8px !important;
+    height: auto !important;
   }
 
-  .cart-qty-input {
-    width: 50px !important;
+  .quick-pick-name {
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
   }
 
-  .cart-amount-input {
-    width: 70px !important;
+  .quick-pick-rate {
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+  }
+
+  /* Cart Table to Modern Cards conversion - natural flow, no fixed height or overflow hidden */
+  .cart-table-wrapper {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .cart-table-wrapper table,
+  .cart-table-wrapper thead,
+  .cart-table-wrapper tbody,
+  .cart-table-wrapper tr,
+  .cart-table-wrapper td {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  .cart-table-wrapper thead {
+    display: none !important;
+  }
+
+  /* Cart item cards - stacked, height auto, proper margin, no absolute */
+  .cart-table-wrapper tbody tr {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    margin-bottom: 12px !important;
+    height: auto !important;
+    box-shadow: var(--shadow-sm) !important;
+    gap: 12px !important;
+    position: static !important;
+  }
+
+  /* Empty Cart state table row check */
+  .cart-table-wrapper tbody tr:has(td[colspan]) {
+    display: block !important;
+    text-align: center !important;
+    border: none !important;
+    padding: 20px !important;
+    box-shadow: none !important;
+    background: var(--surface) !important;
+  }
+
+  .cart-table-wrapper tbody td {
+    display: block !important;
+    width: 100% !important;
+    border: none !important;
+    padding: 0 !important;
+    text-align: left !important;
+    position: static !important;
+    height: auto !important;
+  }
+
+  /* Product Name */
+  .cart-table-wrapper tbody td:nth-child(1) {
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    color: var(--dark) !important;
+    margin-bottom: 2px !important;
+    padding-right: 0 !important;
+  }
+
+  /* Rate */
+  .cart-table-wrapper tbody td:nth-child(2) {
+    font-size: 0.85rem !important;
+    color: var(--text-muted) !important;
+    margin-bottom: 4px !important;
+  }
+  .cart-table-wrapper tbody td:nth-child(2)::before {
+    content: "Rate: " !important;
+    font-weight: 600;
+  }
+
+  /* Qty */
+  .cart-table-wrapper tbody td:nth-child(3) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .cart-table-wrapper tbody td:nth-child(3)::before {
+    content: "Quantity" !important;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-muted);
   }
 
   .quick-qty-box {
-    display: none !important; /* Hide bulky quick qty buttons to prevent overflow */
+    display: none !important; /* Hide bulky quick quantities */
   }
 
-  /* Float Sticky Checkout Actions Controls */
+  /* Amount */
+  .cart-table-wrapper tbody td:nth-child(4) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+  .cart-table-wrapper tbody td:nth-child(4)::before {
+    content: "Amount (₹)" !important;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  /* Inputs custom fit inside cards - exactly 16px to prevent iOS Safari auto-zoom */
+  .cart-table-wrapper tbody td .cart-input {
+    width: 100% !important;
+    height: 38px !important;
+    min-height: auto !important;
+    font-size: 16px !important;
+    padding: 6px 10px !important;
+    margin: 0 !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+  }
+
+  /* Delete Item Button - Stacked naturally at the bottom, no absolute */
+  .cart-table-wrapper tbody td:nth-child(5) {
+    position: static !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+    height: auto !important;
+  }
+
+  .btn-delete-item {
+    background: #fee2e2 !important;
+    color: var(--danger) !important;
+    border: none !important;
+    width: 100% !important;
+    height: 40px !important;
+    border-radius: var(--radius-md) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    gap: 6px !important;
+  }
+  .btn-delete-item::after {
+    content: "Remove Item" !important;
+  }
+  .btn-delete-item svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* Static checkout panels and inputs below cart list - no fixed/absolute height constraints */
   .checkout-controls {
-    position: fixed;
-    bottom: 64px; /* Right above bottom nav bar */
-    left: 0;
-    width: 100%;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    padding: 12px 16px;
-    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.08);
-    z-index: 990;
-    box-sizing: border-box;
+    position: static !important;
+    width: 100% !important;
+    background: transparent !important;
+    border-top: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    z-index: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    margin-top: 16px !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
   .checkout-controls .form-row {
-    margin-top: 6px;
+    margin: 0 !important;
+    height: auto !important;
   }
 
-  .checkout-controls .btn {
+  /* Clear Cart button stacks naturally */
+  #btn-clear-cart {
+    position: static !important;
+    width: 100% !important;
     height: 48px !important;
-    font-size: 0.95rem;
-    flex: 1;
+    margin-bottom: 0 !important;
+  }
+
+  /* Generate Invoice button - normal static button below Payment Mode and Clear Cart */
+  #btn-checkout-bill {
+    position: static !important;
+    width: 100% !important;
+    margin: 12px 0 0 0 !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: var(--shadow-md) !important;
+    height: 48px !important;
+    min-height: auto !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+    z-index: auto !important;
   }
 
   .billing-cart-panel {
-    padding-bottom: 220px !important; /* Extra padding to avoid text cuts under sticky panel */
+    padding-bottom: 0 !important;
+    height: auto !important;
   }
 
   /* 3. Reports Invoices List Mobile UI (Converts to Cards) */
@@ -2007,6 +2264,97 @@ header {
     font-size: 0.85rem !important;
     flex: 1 1 auto;
     min-width: 70px;
+  }
+
+  /* Structural labeling for mobile Reports Invoice Cards based on column count queries */
+  
+  /* A. Daily / History Report (6 columns) */
+  #reports-view tbody tr:has(td:nth-last-child(6)) td:nth-child(2)::before {
+    content: "Date: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  #reports-view tbody tr:has(td:nth-last-child(6)) td:nth-child(3)::before {
+    content: "Customer: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  #reports-view tbody tr:has(td:nth-last-child(6)) td:nth-child(4)::before {
+    content: "Total Amount: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+  }
+  #reports-view tbody tr:has(td:nth-last-child(6)) td:nth-child(5)::before {
+    content: "Payment Mode: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  /* B. Monthly Report (5 columns) */
+  #reports-view tbody tr:has(td:nth-last-child(5)) td:nth-child(2)::before {
+    content: "Bills Count: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  #reports-view tbody tr:has(td:nth-last-child(5)) td:nth-child(3) {
+    color: var(--success) !important;
+    font-weight: 600 !important;
+  }
+  #reports-view tbody tr:has(td:nth-last-child(5)) td:nth-child(3)::before {
+    content: "Cash Sales: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  #reports-view tbody tr:has(td:nth-last-child(5)) td:nth-child(4) {
+    color: var(--danger) !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important; /* Overrides daily total styling */
+  }
+  #reports-view tbody tr:has(td:nth-last-child(5)) td:nth-child(4)::before {
+    content: "Udhaar Sales: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  #reports-view tbody tr:has(td:nth-last-child(5)) td:nth-child(5) {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: var(--primary) !important;
+    border-top: 1px dashed var(--border) !important;
+    padding-top: 8px !important;
+    margin-top: 4px !important;
+  }
+  #reports-view tbody tr:has(td:nth-last-child(5)) td:nth-child(5)::before {
+    content: "Total Earnings: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+  }
+
+  /* C. Product-wise Report (4 columns) */
+  #reports-view tbody tr:has(td:nth-last-child(4)) td:nth-child(2)::before {
+    content: "Category: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  #reports-view tbody tr:has(td:nth-last-child(4)) td:nth-child(3)::before {
+    content: "Total Sold: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  #reports-view tbody tr:has(td:nth-last-child(4)) td:nth-child(4) {
+    font-size: 1.15rem !important;
+    font-weight: 700 !important;
+    color: var(--primary) !important;
+    border-top: 1px dashed var(--border) !important;
+    padding-top: 8px !important;
+    margin-top: 4px !important;
+  }
+  #reports-view tbody tr:has(td:nth-last-child(4)) td:nth-child(4)::before {
+    content: "Sales Revenue: " !important;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.95rem;
   }
 
   /* 4. Products Mobile UI (Converts to Cards) */
@@ -2106,6 +2454,75 @@ header {
   .table-header-bar .form-control {
     width: 100% !important;
   }
+  
+  #product-category-filter {
+    width: 100% !important; /* Override HTML style width="150px" on mobile */
+  }
+
+  /* 4.5 Categories Mobile UI (Converts to Cards) */
+  #categories-view table, 
+  #categories-view thead, 
+  #categories-view tbody, 
+  #categories-view tr, 
+  #categories-view td {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  #categories-view thead {
+    display: none !important;
+  }
+
+  #categories-view tbody tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+  }
+
+  #categories-view tbody td {
+    padding: 0 !important;
+    border: none !important;
+    text-align: left !important;
+  }
+
+  #categories-view tbody td:nth-child(1) {
+    font-size: 1.1rem;
+    font-weight: 700 !important;
+    color: var(--dark);
+    margin-bottom: 4px;
+  }
+
+  #categories-view tbody td:nth-child(2) {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  #categories-view tbody td:nth-child(3) {
+    margin-top: 12px;
+    border-top: 1px solid var(--border) !important;
+    padding-top: 12px !important;
+  }
+
+  #categories-view .product-actions-cell {
+    justify-content: flex-start !important;
+    gap: 12px;
+  }
+
+  #categories-view .product-actions-cell .btn {
+    height: 44px;
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
   /* 5. Invoice Preview Modal Mobile View */
   .modal-container {
@@ -2144,6 +2561,35 @@ header {
     gap: 16px !important;
   }
 
+  /* Mobile Khatabook List-Detail Navigation Pattern */
+  .khatabook-layout .customer-list-card {
+    display: block !important;
+  }
+  .khatabook-layout .ledger-profile-wrapper {
+    display: none !important;
+  }
+  
+  .khatabook-layout.show-details .customer-list-card {
+    display: none !important;
+  }
+  .khatabook-layout.show-details .ledger-profile-wrapper {
+    display: block !important;
+  }
+  
+  .mobile-back-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    color: var(--primary) !important;
+    background-color: var(--primary-pastel) !important;
+    border: 1px solid var(--primary-light) !important;
+    border-radius: var(--radius-md) !important;
+    height: 46px !important;
+    cursor: pointer;
+  }
+
   .customer-ledger-box {
     padding: 14px !important;
   }
@@ -2162,4 +2608,94 @@ header {
     height: 44px !important;
     width: 100% !important;
   }
+
+  /* Extra mobile responsivity refinements */
+  
+  /* Prevent horizontal scrolling & enable multiline word-break wrapping for long multilingual names */
+  .cart-table-wrapper tbody td:nth-child(1),
+  #products-view tbody td:nth-child(1),
+  #categories-view tbody td:nth-child(1) {
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.3 !important;
+  }
+  
+  /* Stack billing customer name/phone fields vertically on mobile */
+  .checkout-controls .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  
+  /* Beautiful glassmorphism search suggestions on mobile */
+  .search-suggestions-dropdown {
+    backdrop-filter: blur(8px) !important;
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(16, 185, 129, 0.15) !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+  }
+  
+  /* Center and slide-up modern mobile toast banner above bottom nav */
+  #toast-notification {
+    bottom: 80px !important;
+    right: 5% !important;
+    left: 5% !important;
+    width: 90% !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Wrap reports sorting controls beautifully */
+  #reports-view .table-header-bar div {
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    gap: 8px !important;
+    justify-content: space-between !important;
+  }
+  #reports-view #report-sort-toggle,
+  #reports-view #report-grand-tally {
+    flex: 1 1 auto !important;
+    text-align: center !important;
+  }
+
+
+}
+
+/* Responsive UPI QR Image Sizing */
+.invoice-upi-qr-img {
+  width: 90px !important;
+  height: 90px !important;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+@media print {
+  .invoice-upi-qr-img {
+    width: 65px !important;
+    height: 65px !important;
+  }
+}
+
+/* Compact UPI QR payment section helper styles */
+.upi-compact-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.upi-compact-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upi-compact-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 90px;
 }

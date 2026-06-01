@@ -11,6 +11,7 @@ const TRANSLATIONS = {
     khatabook: "Khatabook (Udhaar)",
     reports: "Reports",
     settings: "Settings",
+    customers: "Customers",
     search: "Search...",
     actions: "Actions",
     edit: "Edit",
@@ -20,8 +21,10 @@ const TRANSLATIONS = {
     add: "Add",
     loading: "Loading...",
     noData: "No data available",
+    noSalesData: "No sales data available",
     success: "Success",
     error: "Error",
+    backToCustomers: "← Back to Customer List",
 
     // Dashboard
     todaySales: "Today's Sales",
@@ -136,6 +139,7 @@ const TRANSLATIONS = {
     khatabook: "खाताबुक (उधार)",
     reports: "रिपोर्ट्स",
     settings: "सेटिंग्स",
+    customers: "ग्राहक",
     search: "खोजें...",
     actions: "कार्रवाई",
     edit: "संपादित करें",
@@ -145,8 +149,10 @@ const TRANSLATIONS = {
     add: "जोड़ें",
     loading: "लोड हो रहा है...",
     noData: "कोई डेटा उपलब्ध नहीं है",
+    noSalesData: "कोई बिक्री डेटा उपलब्ध नहीं है",
     success: "सफलता",
     error: "त्रुटि",
+    backToCustomers: "← ग्राहकों की सूची पर वापस जाएं",
 
     // Dashboard
     todaySales: "आज की बिक्री",
@@ -261,6 +267,7 @@ const TRANSLATIONS = {
     khatabook: "ਖਾਤਾਬੁੱਕ (ਉਧਾਰ)",
     reports: "ਰਿਪੋਰਟਸ",
     settings: "ਸੈਟਿੰਗਜ਼",
+    customers: "ਗਾਹਕ",
     search: "ਖੋਜੋ...",
     actions: "ਕਾਰਵਾਈ",
     edit: "ਸੋਧੋ",
@@ -270,8 +277,10 @@ const TRANSLATIONS = {
     add: "ਜੋੜੋ",
     loading: "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ...",
     noData: "ਕੋਈ ਡਾਟਾ ਮੌਜੂਦ ਨਹੀਂ ਹੈ",
+    noSalesData: "ਕੋਈ ਵਿਕਰੀ ਡੇਟਾ ਉਪਲਬਧ ਨਹੀਂ ਹੈ",
     success: "ਸਫਲਤਾ",
     error: "ਗਲਤੀ",
+    backToCustomers: "← ਗਾਹਕਾਂ ਦੀ ਸੂਚੀ ਤੇ ਵਾਪਸ ਜਾਓ",
 
     // Dashboard
     todaySales: "ਅੱਜ ਦੀ ਵਿਕਰੀ",
