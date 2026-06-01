@@ -175,6 +175,7 @@ const state = {
   selectedBillingCustomerId: "",
   selectedKhatabookCustomerId: "",
   currentInvoice: null, // Holds the invoice currently in the modal viewer
+  reportsSortOrder: "desc", // Default newest first
   firebaseEnabled: false
 };
 
@@ -217,6 +218,49 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
+  // Bind Mobile Bottom Nav Page Buttons
+  document.querySelectorAll(".mobile-nav-link").forEach(link => {
+    if (link.id === "mobile-nav-more-btn") return; // More button handled separately
+    link.addEventListener("click", (e) => {
+      const button = e.currentTarget;
+      const page = button.dataset.page;
+      switchPage(page);
+    });
+  });
+
+  // Bind Hamburger / More popover items
+  document.querySelectorAll(".mobile-more-item").forEach(link => {
+    link.addEventListener("click", (e) => {
+      const button = e.currentTarget;
+      const page = button.dataset.page;
+      switchPage(page);
+      document.getElementById("mobile-more-popover").style.display = "none";
+    });
+  });
+
+  // Bind More button toggling
+  const moreBtn = document.getElementById("mobile-nav-more-btn");
+  const morePopover = document.getElementById("mobile-more-popover");
+  const closePopover = document.getElementById("btn-close-more-popover");
+
+  if (moreBtn && morePopover) {
+    moreBtn.addEventListener("click", () => {
+      morePopover.style.display = "flex";
+    });
+  }
+
+  if (closePopover && morePopover) {
+    closePopover.addEventListener("click", () => {
+      morePopover.style.display = "none";
+    });
+    // Click outside popover card closes it
+    morePopover.addEventListener("click", (e) => {
+      if (e.target === morePopover) {
+        morePopover.style.display = "none";
+      }
+    });
+  }
+
   // Setup Keyboard Shortcuts
   document.addEventListener("keydown", (e) => {
     if (e.key === "F2" || (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA")) {
@@ -254,6 +298,15 @@ function switchPage(pageId) {
   
   // Update sidebar active highlights
   document.querySelectorAll(".nav-link").forEach(link => {
+    if (link.dataset.page === pageId) {
+      link.classList.add("active");
+    } else {
+      link.classList.remove("active");
+    }
+  });
+
+  // Update mobile bottom nav highlights
+  document.querySelectorAll(".mobile-nav-link").forEach(link => {
     if (link.dataset.page === pageId) {
       link.classList.add("active");
     } else {
@@ -675,17 +728,33 @@ function setupBillingEventListeners() {
   });
 
   // Professional Invoice Slip Modal buttons
-  document.getElementById("invoice-print-btn").addEventListener("click", () => {
-    window.print();
-  });
+  const invoicePrintBtn = document.getElementById("invoice-print-btn");
+  if (invoicePrintBtn) {
+    invoicePrintBtn.addEventListener("click", () => {
+      window.print();
+    });
+  }
 
-  document.getElementById("invoice-pdf-btn").addEventListener("click", () => {
-    downloadInvoicePDF();
-  });
+  const invoicePdfBtn = document.getElementById("invoice-pdf-btn");
+  if (invoicePdfBtn) {
+    invoicePdfBtn.addEventListener("click", () => {
+      downloadInvoicePDF();
+    });
+  }
 
-  document.getElementById("invoice-whatsapp-btn").addEventListener("click", () => {
-    shareInvoiceWhatsApp();
-  });
+  const invoiceWhatsappBtn = document.getElementById("invoice-whatsapp-btn");
+  if (invoiceWhatsappBtn) {
+    invoiceWhatsappBtn.addEventListener("click", () => {
+      shareInvoiceWhatsApp();
+    });
+  }
+
+  const invoiceSharePdfBtn = document.getElementById("invoice-share-pdf-btn");
+  if (invoiceSharePdfBtn) {
+    invoiceSharePdfBtn.addEventListener("click", () => {
+      shareInvoicePDF();
+    });
+  }
 }
 
 function renderBilling() {
@@ -746,9 +815,17 @@ function populateBillingCustomerSelector() {
     select.appendChild(opt);
   });
 
-  // Sync state selection on change
+  // Sync state selection on change and auto-fill details inputs
   select.addEventListener("change", (e) => {
     state.selectedBillingCustomerId = e.target.value;
+    const cust = DB.getCustomers().find(c => c.id === e.target.value);
+    if (cust) {
+      document.getElementById("billing-customer-name").value = cust.name;
+      document.getElementById("billing-customer-phone").value = cust.phone || "";
+    } else {
+      document.getElementById("billing-customer-name").value = "Walk-in Customer";
+      document.getElementById("billing-customer-phone").value = "";
+    }
   });
 }
 
@@ -987,14 +1064,17 @@ async function generateInvoice() {
     : "GS-1001";
 
   const shopSettings = DB.getSettings();
+  
+  const inputName = document.getElementById("billing-customer-name").value.trim() || "Walk-in Customer";
+  const inputPhone = document.getElementById("billing-customer-phone").value.trim();
 
   const invoice = {
     invoiceNo: nextInvNum,
     date: new Date().toISOString().split("T")[0],
     time: new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" }),
     customerId: customer ? customer.id : null,
-    customerName: customer ? customer.name : "Walk-in Customer",
-    customerPhone: customer ? customer.phone : "",
+    customerName: inputName,
+    customerPhone: inputPhone,
     items: [...state.cart],
     subtotal: parseFloat(subtotal.toFixed(2)),
     discount: parseFloat(discount.toFixed(2)),
@@ -1011,6 +1091,10 @@ async function generateInvoice() {
   document.getElementById("summary-discount-input").value = 0;
   renderCart();
   
+  // Reset fields to default
+  document.getElementById("billing-customer-name").value = "Walk-in Customer";
+  document.getElementById("billing-customer-phone").value = "";
+
   // Show Thermal slip Modal
   openInvoiceModal(savedInv);
   showToast("Invoice saved successfully!", "success");
@@ -1078,82 +1162,183 @@ function openInvoiceModal(invoice) {
   openModal("modal-invoice-slip");
 }
 
-// Download PDF Invoice
-function downloadInvoicePDF() {
+function padEnd(str, targetLength, padChar = " ") {
+  str = String(str);
+  if (str.length >= targetLength) return str.substring(0, targetLength);
+  return str + padChar.repeat(targetLength - str.length);
+}
+
+function padStart(str, targetLength, padChar = " ") {
+  str = String(str);
+  if (str.length >= targetLength) return str.substring(0, targetLength);
+  return padChar.repeat(targetLength - str.length) + str;
+}
+
+function getEnglishName(name) {
+  if (!name) return "";
+  let clean = String(name);
+  
+  // Remove brackets like ( / ) or any parentheses/brackets and their contents
+  clean = clean.replace(/\([^)]*\)/g, "");
+  clean = clean.replace(/\[[^\]]*\]/g, "");
+  
+  // Remove remaining bracket characters
+  clean = clean.replace(/[(){}[\]]/g, "");
+  
+  // Remove Devanagari (Hindi) and Gurmukhi (Punjabi) characters
+  clean = clean.replace(/[\u0900-\u097F]/g, "");
+  clean = clean.replace(/[\u0A00-\u0A7F]/g, "");
+  
+  // Remove non-ASCII characters (e.g. Rupee or other symbols)
+  clean = clean.replace(/[^\x20-\x7E]/g, "");
+  
+  // Replace slash or other symbols
+  clean = clean.replace(/\//g, " ");
+  
+  // Clean up extra spaces
+  clean = clean.replace(/\s+/g, " ");
+  
+  return clean.trim();
+}
+
+function generatePDFDocument() {
   const invoice = state.currentInvoice;
-  if (!invoice) return;
+  if (!invoice) return null;
 
   const { jsPDF } = window.jspdf;
-  if (!jsPDF) {
-    showToast("PDF generator loading error. Try printing directly.", "error");
-    return;
-  }
+  if (!jsPDF) return null;
 
-  const shop = DB.getSettings();
+  // Monospace font styling at 8px size: 40 characters wide fits standard thermal width perfectly.
+  // Dynamic page height based on item counts:
+  const itemHeight = 4.5;
+  const baseHeight = invoice.customerPhone ? 119 : 115;
+  const pageHeight = baseHeight + (invoice.items.length * itemHeight);
+  
   const doc = new jsPDF({
     unit: "mm",
-    format: [80, 150] // Standard 80mm thermal paper length
+    format: [80, pageHeight]
   });
 
   doc.setFont("courier", "bold");
   doc.setFontSize(10);
-  doc.text(shop.shopName, 40, 10, { align: "center" });
+  doc.text("Gurbhej Grocery Store", 40, 10, { align: "center" });
 
   doc.setFont("courier", "normal");
-  doc.setFontSize(7);
-  doc.text(shop.shopTagline || "", 40, 13, { align: "center" });
-  doc.text(shop.shopAddress || "", 40, 16, { align: "center" });
-  doc.text(`Phone: ${shop.shopPhone}`, 40, 19, { align: "center" });
+  doc.setFontSize(8);
+  doc.text("Fresh groceries and trusted service", 40, 15, { align: "center" });
+  doc.text("Main Bazaar, Gurdaspur, Punjab, India", 40, 19, { align: "center" });
+  doc.text("Phone: 9876543210", 40, 23, { align: "center" });
 
-  doc.text("----------------------------------------", 40, 23, { align: "center" });
+  doc.text("----------------------------------------", 40, 27, { align: "center" });
   
-  doc.text(`Invoice No: ${invoice.invoiceNo}`, 5, 27);
-  doc.text(`Date & Time: ${invoice.date} ${invoice.time}`, 5, 31);
-  doc.text(`Customer: ${invoice.customerName}`, 5, 35);
+  doc.text(`Invoice No : ${invoice.invoiceNo}`, 8, 32);
+  doc.text(`Date & Time: ${invoice.date} ${invoice.time}`, 8, 36);
+  
+  const cleanCustomerName = getEnglishName(invoice.customerName);
+  doc.text(`Customer   : ${cleanCustomerName}`, 8, 40);
+
+  let headerOffset = 44;
   if (invoice.customerPhone) {
-    doc.text(`Phone: ${invoice.customerPhone}`, 5, 39);
+    doc.text(`Customer Ph: ${invoice.customerPhone}`, 8, 44);
+    headerOffset = 48;
   }
 
-  doc.text("----------------------------------------", 40, 43, { align: "center" });
+  doc.text("----------------------------------------", 40, headerOffset, { align: "center" });
 
-  // Draw items
-  let y = 47;
+  // Monospace Table Header
+  // Item (20 chars) | Rate (9 chars) | Qty (5 chars) | Amount = 40 chars total
+  const headerLine = padEnd("Item", 20) + padEnd("Rate", 9) + padEnd("Qty", 5) + "Amount";
   doc.setFont("courier", "bold");
-  doc.text("Item", 5, y);
-  doc.text("Rate", 35, y);
-  doc.text("Qty", 50, y);
-  doc.text("Amt", 65, y);
-  y += 4;
+  doc.text(headerLine, 8, headerOffset + 5);
+  
+  doc.text("----------------------------------------", 40, headerOffset + 9, { align: "center" });
   doc.setFont("courier", "normal");
 
+  let y = headerOffset + 14;
   invoice.items.forEach(item => {
-    const fullProd = DB.getProducts().find(p => p.id === item.id);
-    const shortName = formatProductName(fullProd || item).substring(0, 18);
-    doc.text(shortName, 5, y);
-    doc.text(`₹${item.rate}`, 35, y);
-    doc.text(`${item.qty}`, 50, y);
-    doc.text(`₹${item.amount.toFixed(0)}`, 65, y);
-    y += 4.5;
+    const rawName = item.name || "";
+    const cleanEnglishName = getEnglishName(rawName);
+    
+    const rateVal = parseFloat(item.rate);
+    const rateText = "Rs." + (rateVal % 1 === 0 ? rateVal.toFixed(0) : rateVal.toFixed(2));
+    
+    const qtyText = `${item.qty}`;
+    
+    const amountVal = parseFloat(item.amount);
+    const amountText = "Rs." + (amountVal % 1 === 0 ? amountVal.toFixed(0) : amountVal.toFixed(2));
+
+    const rowLine = padEnd(cleanEnglishName, 20) + padEnd(rateText, 9) + padEnd(qtyText, 5) + amountText;
+    doc.text(rowLine, 8, y);
+    y += itemHeight;
   });
 
   doc.text("----------------------------------------", 40, y, { align: "center" });
   y += 4;
 
-  doc.text(`Subtotal: ₹${invoice.subtotal}`, 45, y);
+  const subtotalVal = parseFloat(invoice.subtotal);
+  const subtotalText = "Rs." + (subtotalVal % 1 === 0 ? subtotalVal.toFixed(0) : subtotalVal.toFixed(2));
+  doc.text(`Subtotal: ${subtotalText}`, 8, y);
   y += 4;
-  doc.text(`Discount: ₹${invoice.discount}`, 45, y);
+
+  const discountVal = parseFloat(invoice.discount);
+  const discountText = "Rs." + (discountVal % 1 === 0 ? discountVal.toFixed(0) : discountVal.toFixed(2));
+  doc.text(`Discount: ${discountText}`, 8, y);
   y += 4;
+  
   doc.setFont("courier", "bold");
-  doc.text(`TOTAL: ₹${invoice.total}`, 45, y);
-  y += 4.5;
-  doc.text(`MODE: ${invoice.paymentMode.toUpperCase()}`, 45, y);
+  const totalVal = parseFloat(invoice.total);
+  const totalText = "Rs." + (totalVal % 1 === 0 ? totalVal.toFixed(0) : totalVal.toFixed(2));
+  doc.text(`TOTAL   : ${totalText}`, 8, y);
+  y += 5;
+  doc.text(`MODE    : ${invoice.paymentMode.toUpperCase()}`, 8, y);
   y += 6;
 
   doc.setFont("courier", "normal");
   doc.text("Thank you for shopping! Visit again.", 40, y, { align: "center" });
 
-  doc.save(`Invoice_${invoice.invoiceNo}.pdf`);
-  showToast("PDF Invoice downloaded!", "success");
+  return { doc, filename: `Invoice_${invoice.invoiceNo}.pdf` };
+}
+
+// Download PDF Invoice
+function downloadInvoicePDF() {
+  const result = generatePDFDocument();
+  if (result) {
+    result.doc.save(result.filename);
+    showToast("PDF Invoice downloaded!", "success");
+  } else {
+    showToast("PDF generation failed.", "error");
+  }
+}
+
+// Share PDF Invoice
+async function shareInvoicePDF() {
+  const invoice = state.currentInvoice;
+  if (!invoice) return;
+
+  const result = generatePDFDocument();
+  if (!result) {
+    showToast("PDF generation failed.", "error");
+    return;
+  }
+
+  try {
+    const pdfBlob = result.doc.output("blob");
+    const file = new File([pdfBlob], result.filename, { type: "application/pdf" });
+    
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: `Invoice ${invoice.invoiceNo}`,
+        text: `Gurbhej Grocery Store Invoice - ${invoice.invoiceNo}`
+      });
+      showToast("PDF shared successfully!", "success");
+    } else {
+      alert("Web Share API is not supported on this device/browser for files. Please download the PDF and attach it manually.");
+    }
+  } catch (err) {
+    console.error("PDF sharing failed:", err);
+    showToast("Sharing cancelled or failed.", "error");
+  }
 }
 
 // Share formatted invoice to customer's WhatsApp using official wa.me format
@@ -1847,6 +2032,7 @@ function setupReportsEventListeners() {
   const typeFilter = document.getElementById("report-type-filter");
   const fromDate = document.getElementById("report-from-date");
   const toDate = document.getElementById("report-to-date");
+  const searchQuery = document.getElementById("report-search-query");
 
   // Sync inputs on date triggers
   typeFilter.addEventListener("change", () => {
@@ -1854,12 +2040,80 @@ function setupReportsEventListeners() {
   });
   
   fromDate.addEventListener("change", () => {
+    document.querySelectorAll(".quick-date-btn").forEach(btn => btn.classList.remove("active"));
     renderReports();
   });
 
   toDate.addEventListener("change", () => {
+    document.querySelectorAll(".quick-date-btn").forEach(btn => btn.classList.remove("active"));
     renderReports();
   });
+
+  if (searchQuery) {
+    searchQuery.addEventListener("input", () => {
+      renderReports();
+    });
+  }
+
+  // Bind Quick Date filters
+  document.querySelectorAll(".quick-date-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      // Toggle active states
+      document.querySelectorAll(".quick-date-btn").forEach(b => b.classList.remove("active"));
+      e.target.classList.add("active");
+
+      const range = e.target.dataset.range;
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      let fromStr = todayStr;
+      let toStr = todayStr;
+
+      if (range === "today") {
+        fromStr = todayStr;
+        toStr = todayStr;
+      } else if (range === "yesterday") {
+        const yesterday = new Date(Date.now() - 86400000);
+        fromStr = yesterday.toISOString().split("T")[0];
+        toStr = yesterday.toISOString().split("T")[0];
+      } else if (range === "7days") {
+        const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+        fromStr = sevenDaysAgo.toISOString().split("T")[0];
+        toStr = todayStr;
+      } else if (range === "month") {
+        const d = new Date();
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        fromStr = `${yyyy}-${mm}-01`;
+        
+        const lastDay = new Date(yyyy, d.getMonth() + 1, 0);
+        toStr = `${yyyy}-${mm}-${String(lastDay.getDate()).padStart(2, "0")}`;
+      } else if (range === "all") {
+        fromStr = "2020-01-01";
+        toStr = todayStr;
+      }
+
+      fromDate.value = fromStr;
+      toDate.value = toStr;
+      renderReports();
+    });
+  });
+
+  // Bind Sort Toggle
+  const sortToggle = document.getElementById("report-sort-toggle");
+  if (sortToggle) {
+    sortToggle.addEventListener("click", () => {
+      if (state.reportsSortOrder === "desc") {
+        state.reportsSortOrder = "asc";
+        document.getElementById("report-sort-icon").textContent = "↑";
+        document.getElementById("report-sort-label").textContent = "Oldest First";
+      } else {
+        state.reportsSortOrder = "desc";
+        document.getElementById("report-sort-icon").textContent = "↓";
+        document.getElementById("report-sort-label").textContent = "Newest First";
+      }
+      renderReports();
+    });
+  }
 }
 
 function renderReports() {
@@ -1872,6 +2126,16 @@ function renderReports() {
   const thead = document.getElementById("report-table-head");
   const grandTally = document.getElementById("report-grand-tally");
   const resTitle = document.getElementById("report-result-title");
+
+  // Toggle search row visibility dynamically
+  const searchRow = document.getElementById("report-search-row");
+  if (searchRow) {
+    if (type === "history") {
+      searchRow.style.display = "block";
+    } else {
+      searchRow.style.display = "none";
+    }
+  }
 
   tbody.innerHTML = "";
   
@@ -1888,13 +2152,31 @@ function renderReports() {
         <th data-i18n="invoiceNumber">Invoice No</th>
         <th data-i18n="dateTime">Date & Time</th>
         <th data-i18n="customer">Customer</th>
-        <th data-i18n="paymentMode">Payment Mode</th>
         <th class="num-cell" data-i18n="total">Total (₹)</th>
+        <th data-i18n="paymentMode">Payment Mode</th>
+        <th style="text-align: center;">Actions</th>
       </tr>
     `;
 
+    // Sort range invoices based on selected sort order (Invoice No, Date & Time)
+    rangeInvs.sort((a, b) => {
+      const dateTimeA = `${a.date} ${a.time}`;
+      const dateTimeB = `${b.date} ${b.time}`;
+      
+      const numA = parseInt((a.invoiceNo || "").split("-")[1]) || 0;
+      const numB = parseInt((b.invoiceNo || "").split("-")[1]) || 0;
+
+      if (state.reportsSortOrder === "desc") {
+        if (dateTimeB !== dateTimeA) return dateTimeB.localeCompare(dateTimeA);
+        return numB - numA;
+      } else {
+        if (dateTimeA !== dateTimeB) return dateTimeA.localeCompare(dateTimeB);
+        return numA - numB;
+      }
+    });
+
     if (rangeInvs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);" data-i18n="noData">${getTranslation("noData")}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);" data-i18n="noData">${getTranslation("noData")}</td></tr>`;
       grandTally.textContent = `Total Sales: ₹0`;
       return;
     }
@@ -1906,9 +2188,47 @@ function renderReports() {
         <td style="font-weight:700; color:var(--dark);">${inv.invoiceNo}</td>
         <td>${inv.date} ${inv.time}</td>
         <td style="font-weight:500;">${inv.customerName}</td>
-        <td><span class="product-row-category" style="${inv.paymentMode === 'udhaar' ? 'background-color:var(--danger-light); color:var(--danger);' : 'background-color:var(--success-light); color:var(--success);'}">${inv.paymentMode.toUpperCase()}</span></td>
         <td class="num-cell" style="font-weight:700; color:var(--dark);">₹${inv.total}</td>
+        <td><span class="product-row-category" style="${inv.paymentMode === 'udhaar' ? 'background-color:var(--danger-light); color:var(--danger);' : 'background-color:var(--success-light); color:var(--success);'}">${inv.paymentMode.toUpperCase()}</span></td>
+        <td style="text-align: center;">
+          <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+            <button class="btn btn-secondary btn-sm btn-view-hist" style="padding: 4px 8px; font-size: 0.75rem;">View</button>
+            <button class="btn btn-secondary btn-sm btn-pdf-hist" style="padding: 4px 8px; font-size: 0.75rem;">PDF</button>
+            <button class="btn btn-secondary btn-sm btn-print-hist" style="padding: 4px 8px; font-size: 0.75rem;">Print</button>
+            <button class="btn btn-primary btn-sm btn-wa-hist" style="padding: 4px 8px; font-size: 0.75rem;">WhatsApp</button>
+          </div>
+        </td>
       `;
+
+      // Event handlers with safe transient currentInvoice context swapping
+      tr.querySelector(".btn-view-hist").addEventListener("click", () => {
+        openInvoiceModal(inv);
+      });
+
+      tr.querySelector(".btn-pdf-hist").addEventListener("click", () => {
+        const oldCurrent = state.currentInvoice;
+        state.currentInvoice = inv;
+        downloadInvoicePDF();
+        state.currentInvoice = oldCurrent;
+      });
+
+      tr.querySelector(".btn-print-hist").addEventListener("click", () => {
+        const oldCurrent = state.currentInvoice;
+        state.currentInvoice = inv;
+        openInvoiceModal(inv);
+        setTimeout(() => {
+          window.print();
+          state.currentInvoice = oldCurrent;
+        }, 300);
+      });
+
+      tr.querySelector(".btn-wa-hist").addEventListener("click", () => {
+        const oldCurrent = state.currentInvoice;
+        state.currentInvoice = inv;
+        shareInvoiceWhatsApp();
+        state.currentInvoice = oldCurrent;
+      });
+
       tbody.appendChild(tr);
     });
 
@@ -2003,6 +2323,104 @@ function renderReports() {
         <td style="font-weight:500;">${stats.qty.toFixed(2)} ${stats.unit}</td>
         <td class="num-cell" style="font-weight:700; color:var(--dark);">₹${stats.total}</td>
       `;
+      tbody.appendChild(tr);
+    });
+
+  } else if (type === "history") {
+    resTitle.textContent = `${getTranslation("invoiceHistory")} (${start} to ${end})`;
+    thead.innerHTML = `
+      <tr>
+        <th data-i18n="invoiceNumber">Invoice No</th>
+        <th data-i18n="dateTime">Date & Time</th>
+        <th data-i18n="customer">Customer</th>
+        <th class="num-cell" data-i18n="total">Total (₹)</th>
+        <th data-i18n="paymentMode">Payment Mode</th>
+        <th style="text-align: center;">Actions</th>
+      </tr>
+    `;
+
+    // Filter range invoices by search query (invoice number, customer name, customer phone)
+    const searchQuery = document.getElementById("report-search-query").value.trim().toLowerCase();
+    const filteredInvs = rangeInvs.filter(inv => {
+      if (!searchQuery) return true;
+      const invNo = (inv.invoiceNo || "").toLowerCase();
+      const custName = (inv.customerName || "").toLowerCase();
+      const custPhone = (inv.customerPhone || "").toLowerCase();
+      return invNo.includes(searchQuery) || custName.includes(searchQuery) || custPhone.includes(searchQuery);
+    });
+
+    // Sort range invoices based on selected sort order (Invoice No, Date & Time)
+    filteredInvs.sort((a, b) => {
+      const dateTimeA = `${a.date} ${a.time}`;
+      const dateTimeB = `${b.date} ${b.time}`;
+      
+      const numA = parseInt((a.invoiceNo || "").split("-")[1]) || 0;
+      const numB = parseInt((b.invoiceNo || "").split("-")[1]) || 0;
+
+      if (state.reportsSortOrder === "desc") {
+        if (dateTimeB !== dateTimeA) return dateTimeB.localeCompare(dateTimeA);
+        return numB - numA;
+      } else {
+        if (dateTimeA !== dateTimeB) return dateTimeA.localeCompare(dateTimeB);
+        return numA - numB;
+      }
+    });
+
+    if (filteredInvs.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);" data-i18n="noData">${getTranslation("noData")}</td></tr>`;
+      grandTally.textContent = `Total Sales: ₹0`;
+      return;
+    }
+
+    filteredInvs.forEach(inv => {
+      totalSales += inv.total;
+      const tr = document.createElement("tr");
+      
+      tr.innerHTML = `
+        <td style="font-weight:700; color:var(--dark);">${inv.invoiceNo}</td>
+        <td>${inv.date} ${inv.time}</td>
+        <td style="font-weight:500;">${inv.customerName}</td>
+        <td class="num-cell" style="font-weight:700; color:var(--dark);">₹${inv.total}</td>
+        <td><span class="product-row-category" style="${inv.paymentMode === 'udhaar' ? 'background-color:var(--danger-light); color:var(--danger);' : 'background-color:var(--success-light); color:var(--success);'}">${inv.paymentMode.toUpperCase()}</span></td>
+        <td style="text-align: center;">
+          <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+            <button class="btn btn-secondary btn-sm btn-view-hist" style="padding: 4px 8px; font-size: 0.75rem;">View</button>
+            <button class="btn btn-secondary btn-sm btn-pdf-hist" style="padding: 4px 8px; font-size: 0.75rem;">PDF</button>
+            <button class="btn btn-secondary btn-sm btn-print-hist" style="padding: 4px 8px; font-size: 0.75rem;">Print</button>
+            <button class="btn btn-primary btn-sm btn-wa-hist" style="padding: 4px 8px; font-size: 0.75rem;">WhatsApp</button>
+          </div>
+        </td>
+      `;
+
+      // Event handlers with safe transient currentInvoice context swapping
+      tr.querySelector(".btn-view-hist").addEventListener("click", () => {
+        openInvoiceModal(inv);
+      });
+
+      tr.querySelector(".btn-pdf-hist").addEventListener("click", () => {
+        const oldCurrent = state.currentInvoice;
+        state.currentInvoice = inv;
+        downloadInvoicePDF();
+        state.currentInvoice = oldCurrent;
+      });
+
+      tr.querySelector(".btn-print-hist").addEventListener("click", () => {
+        const oldCurrent = state.currentInvoice;
+        state.currentInvoice = inv;
+        openInvoiceModal(inv);
+        setTimeout(() => {
+          window.print();
+          state.currentInvoice = oldCurrent;
+        }, 300);
+      });
+
+      tr.querySelector(".btn-wa-hist").addEventListener("click", () => {
+        const oldCurrent = state.currentInvoice;
+        state.currentInvoice = inv;
+        shareInvoiceWhatsApp();
+        state.currentInvoice = oldCurrent;
+      });
+
       tbody.appendChild(tr);
     });
   }

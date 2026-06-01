@@ -107,6 +107,7 @@ const TRANSLATIONS = {
 
     // Reports
     dailyReport: "Daily Sales Report",
+    invoiceHistory: "Invoice History",
     monthlyReport: "Monthly Sales Report",
     productSales: "Product-wise Sales",
     totalEarnings: "Total Sales",
@@ -231,6 +232,7 @@ const TRANSLATIONS = {
 
     // Reports
     dailyReport: "दैनिक बिक्री रिपोर्ट",
+    invoiceHistory: "बिल का इतिहास",
     monthlyReport: "मासिक बिक्री रिपोर्ट",
     productSales: "उत्पाद-वार बिक्री",
     totalEarnings: "कुल बिक्री",
@@ -355,6 +357,7 @@ const TRANSLATIONS = {
 
     // Reports
     dailyReport: "ਰੋਜ਼ਾਨਾ ਵਿਕਰੀ ਰਿਪੋਰਟ",
+    invoiceHistory: "ਬਿੱਲ ਦਾ ਇਤਿਹਾਸ",
     monthlyReport: "ਮਾਸਿਕ ਵਿਕਰੀ ਰਿਪੋਰਟ",
     productSales: "ਸਮਾਨ-ਵਾਰ ਵਿਕਰੀ",
     totalEarnings: "ਕੁੱਲ ਵਿਕਰੀ",

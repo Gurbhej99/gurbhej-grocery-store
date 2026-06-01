@@ -1472,7 +1472,7 @@ header {
 
 .invoice-action-controls {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 12px;
 }
@@ -1607,9 +1607,18 @@ header {
     gap: 20px;
   }
 
-  .search-filter-controls {
-    width: 100%;
-  }
+.quick-date-btn {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.quick-date-btn.active {
+  background-color: var(--primary) !important;
+  color: white !important;
+  border-color: var(--primary) !important;
 }
 
 /* ==========================================
@@ -1648,5 +1657,509 @@ header {
 
   .modal-header, .modal-footer, .invoice-action-controls {
     display: none !important;
+  }
+}
+
+/* ==========================================
+   MOBILE BOTTOM NAVIGATION & DRAWER STYLES
+   ========================================== */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 64px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
+  display: none; /* Hidden on desktop */
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1000;
+  padding: 4px 0;
+}
+
+.mobile-nav-link {
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  gap: 4px;
+  flex: 1;
+  height: 100%;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mobile-nav-link svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  transition: transform 0.2s ease;
+}
+
+.mobile-nav-link.active {
+  color: var(--primary);
+}
+
+.mobile-nav-link.active svg {
+  transform: scale(1.1);
+}
+
+/* Hamburger More Popover Menu Drawer */
+.mobile-more-popover-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 1100;
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn 0.3s ease;
+}
+
+.mobile-more-popover-card {
+  background: var(--surface);
+  width: 100%;
+  border-radius: 20px 20px 0 0;
+  padding: 24px;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+  transform: translateY(0);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.mobile-more-popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.mobile-more-popover-header h4 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--dark);
+  margin: 0;
+}
+
+.mobile-more-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.mobile-more-item {
+  background: none;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.mobile-more-icon-wrapper {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.mobile-more-item:hover .mobile-more-icon-wrapper {
+  transform: scale(1.05);
+}
+
+.mobile-more-item span {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* ==========================================
+   MOBILE FULL RESPONSIVE OVERRIDES (MAX-WIDTH 768PX)
+   ========================================== */
+@media (max-width: 768px) {
+  /* 1. General & Navigation Overrides */
+  body, html {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+    font-size: 14px !important;
+  }
+
+  #app-container {
+    grid-template-columns: 1fr !important;
+    padding-bottom: 72px !important; /* Space for bottom nav */
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  aside {
+    display: none !important; /* Hide left sidebar */
+  }
+
+  .mobile-bottom-nav {
+    display: flex !important; /* Show mobile bottom navigation */
+  }
+
+  main {
+    padding: 16px !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .btn {
+    min-height: 44px; /* Minimum easy-to-tap touch targets */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .form-control {
+    min-height: 44px;
+    font-size: 16px !important; /* Avoid auto-zoom on iOS Safari */
+  }
+
+  /* 2. Fast Billing Mobile UI */
+  .billing-layout {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .billing-left-panel, .billing-cart-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Product search query spanning 100% width */
+  .search-bar-wrapper {
+    width: 100% !important;
+  }
+
+  /* Quick pick items inside 2 columns */
+  .quick-picks-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .quick-pick-btn {
+    min-height: 52px;
+    padding: 8px !important;
+  }
+
+  /* Cart elements width fit and overflow fixes */
+  .cart-table-wrapper {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cart-input {
+    width: 60px !important;
+    height: 36px !important;
+    min-height: auto !important;
+    padding: 4px !important;
+  }
+
+  .cart-qty-input {
+    width: 50px !important;
+  }
+
+  .cart-amount-input {
+    width: 70px !important;
+  }
+
+  .quick-qty-box {
+    display: none !important; /* Hide bulky quick qty buttons to prevent overflow */
+  }
+
+  /* Float Sticky Checkout Actions Controls */
+  .checkout-controls {
+    position: fixed;
+    bottom: 64px; /* Right above bottom nav bar */
+    left: 0;
+    width: 100%;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.08);
+    z-index: 990;
+    box-sizing: border-box;
+  }
+
+  .checkout-controls .form-row {
+    margin-top: 6px;
+  }
+
+  .checkout-controls .btn {
+    height: 48px !important;
+    font-size: 0.95rem;
+    flex: 1;
+  }
+
+  .billing-cart-panel {
+    padding-bottom: 220px !important; /* Extra padding to avoid text cuts under sticky panel */
+  }
+
+  /* 3. Reports Invoices List Mobile UI (Converts to Cards) */
+  #reports-view table, 
+  #reports-view thead, 
+  #reports-view tbody, 
+  #reports-view tr, 
+  #reports-view td {
+    display: block;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  #reports-view thead {
+    display: none !important; /* Hide head */
+  }
+
+  #reports-view tbody tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #reports-view tbody td {
+    padding: 0 !important;
+    border: none !important;
+    text-align: left !important;
+  }
+
+  #reports-view tbody td:nth-child(1) {
+    font-size: 1.1rem;
+    font-weight: 700 !important;
+    color: var(--dark);
+  }
+
+  #reports-view tbody td:nth-child(2) {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  #reports-view tbody td:nth-child(3) {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  #reports-view tbody td:nth-child(4) {
+    font-size: 1.15rem;
+    font-weight: 700 !important;
+    color: var(--primary);
+  }
+
+  #reports-view tbody td:nth-child(5) {
+    display: inline-block;
+    width: auto !important;
+    margin-top: 4px;
+  }
+
+  #reports-view tbody td:nth-child(6) {
+    margin-top: 12px;
+    border-top: 1px solid var(--border) !important;
+    padding-top: 12px !important;
+  }
+
+  #reports-view tbody td:nth-child(6) div {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    justify-content: flex-start !important;
+  }
+
+  #reports-view tbody td:nth-child(6) .btn {
+    height: 44px;
+    padding: 0 16px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem !important;
+    flex: 1 1 auto;
+    min-width: 70px;
+  }
+
+  /* 4. Products Mobile UI (Converts to Cards) */
+  #products-view table, 
+  #products-view thead, 
+  #products-view tbody, 
+  #products-view tr, 
+  #products-view td {
+    display: block;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  #products-view thead {
+    display: none !important;
+  }
+
+  #products-view tbody tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+  }
+
+  #products-view tbody td {
+    padding: 0 !important;
+    border: none !important;
+    text-align: left !important;
+  }
+
+  #products-view tbody td:nth-child(1) {
+    font-size: 1.1rem;
+    font-weight: 700 !important;
+    color: var(--dark);
+    margin-bottom: 4px;
+  }
+
+  #products-view tbody td:nth-child(2) {
+    display: inline-block;
+    width: auto !important;
+    margin-right: 12px;
+  }
+
+  #products-view tbody td:nth-child(3) {
+    display: inline-block;
+    width: auto !important;
+    margin-right: 12px;
+    color: var(--text-muted);
+  }
+
+  #products-view tbody td:nth-child(4) {
+    display: inline-block;
+    width: auto !important;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  #products-view tbody td:nth-child(5) {
+    margin-top: 12px;
+    border-top: 1px solid var(--border) !important;
+    padding-top: 12px !important;
+  }
+
+  #products-view .product-actions-cell {
+    justify-content: flex-start !important;
+    gap: 12px;
+  }
+
+  #products-view .product-actions-cell .btn {
+    height: 44px;
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Product search/category dropdown full-width */
+  .table-header-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  
+  .table-header-bar .search-filter-controls {
+    width: 100% !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  
+  .table-header-bar .form-control {
+    width: 100% !important;
+  }
+
+  /* 5. Invoice Preview Modal Mobile View */
+  .modal-container {
+    width: 95% !important;
+    max-width: 95% !important;
+    border-radius: 16px !important;
+    margin: 10px auto !important;
+  }
+
+  .invoice-modal-container {
+    width: 95% !important;
+    max-width: 95% !important;
+    padding: 16px !important;
+  }
+
+  .invoice-action-controls {
+    grid-template-columns: 1fr !important; /* Stack vertically! */
+    gap: 10px !important;
+  }
+
+  .invoice-action-controls .btn {
+    height: 48px !important; /* Large, easy to tap touch targets */
+    font-size: 0.95rem !important;
+    padding: 12px 16px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100% !important;
+    grid-column: span 2 !important; /* Force override any span rules */
+  }
+
+  /* 6. Settings, Khatabook & Categories lists stack overrides */
+  .khatabook-layout, .settings-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .customer-ledger-box {
+    padding: 14px !important;
+  }
+
+  .ledger-balance-card {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .ledger-actions {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .ledger-actions .btn {
+    height: 44px !important;
+    width: 100% !important;
   }
 }
