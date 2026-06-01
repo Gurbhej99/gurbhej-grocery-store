@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gurbhej Grocery Store - Fast Billing & Khatabook</title>
+  
+  <!-- Global Premium Stylesheet -->
+  <link rel="stylesheet" href="./style.css">
+  
+  <!-- HTML5 Canvas/jsPDF fallback for PDF downloads -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+  <div id="app-container">
+    
+    <!-- Collapsible Sidebar (Desktop) / Navigation Bar (Mobile) -->
+    <aside>
+      <div class="brand">
+        <div class="brand-icon">G</div>
+        <div class="brand-info">
+          <h1 data-i18n="appName">Gurbhej Grocery Store</h1>
+          <span>Billing & Khata</span>
+        </div>
+      </div>
+      
+      <nav>
+        <button class="nav-link active" data-page="dashboard">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <rect x="3" y="3" width="7" height="9" rx="1" stroke-width="2"/>
+            <rect x="14" y="3" width="7" height="5" rx="1" stroke-width="2"/>
+            <rect x="14" y="12" width="7" height="9" rx="1" stroke-width="2"/>
+            <rect x="3" y="16" width="7" height="5" rx="1" stroke-width="2"/>
+          </svg>
+          <span data-i18n="dashboard">Dashboard</span>
+        </button>
+        
+        <button class="nav-link" data-page="billing">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <circle cx="9" cy="21" r="1" stroke-width="2"/>
+            <circle cx="20" cy="21" r="1" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+          </svg>
+          <span data-i18n="billing">Fast Billing</span>
+        </button>
+        
+        <button class="nav-link" data-page="products">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+          </svg>
+          <span data-i18n="products">Products</span>
+        </button>
+        
+        <button class="nav-link" data-page="categories">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span data-i18n="categories">Categories</span>
+        </button>
+        
+        <button class="nav-link" data-page="khatabook">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+          </svg>
+          <span data-i18n="khatabook">Khatabook (Udhaar)</span>
+        </button>
+        
+        <button class="nav-link" data-page="reports">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          <span data-i18n="reports">Reports</span>
+        </button>
+        
+        <button class="nav-link" data-page="settings">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <circle cx="12" cy="12" r="3" stroke-width="2"/>
+          </svg>
+          <span data-i18n="settings">Settings</span>
+        </button>
+      </nav>
+      
+      <div class="nav-footer">
+        <div class="sync-status">
+          <span id="cloud-sync-indicator" class="sync-dot"></span>
+          <span id="cloud-sync-text">LocalStorage Mode</span>
+        </div>
+        <div>v1.0.0 © Gurbhej Store</div>
+      </div>
+    </aside>
+    
+    <!-- Main Content Context Frame -->
+    <main>
+      
+      <!-- Top Title bar & Persistent Global Controls -->
+      <header>
+        <div class="header-title">
+          <h2 id="page-header-title" data-i18n="dashboard">Dashboard</h2>
+          <p id="page-header-subtitle">Welcome back, Shopkeeper!</p>
+        </div>
+        <div class="header-controls">
+          <div class="lang-selector">
+            <button class="lang-btn active" data-lang="en">EN</button>
+            <button class="lang-btn" data-lang="hi">हिन्दी</button>
+            <button class="lang-btn" data-lang="pa">ਪੰਜਾਬੀ</button>
+          </div>
+        </div>
+      </header>
+      
+      <!-- ==========================================
+           1. DASHBOARD PAGE
+           ========================================== -->
+      <section id="dashboard-view" class="page-view active">
+        
+        <!-- Metrics KPI Grid -->
+        <div class="stats-grid">
+          <div class="card stat-card stat-card-glow">
+            <div class="stat-header">
+              <div class="stat-icon bg-primary-light">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <span class="stat-title" data-i18n="todaySales">Today's Sales</span>
+            </div>
+            <div id="stat-today-sales" class="stat-value">₹0</div>
+            <div class="stat-subtext">
+              <span class="success">▲ 12%</span> vs yesterday
+            </div>
+          </div>
+          
+          <div class="card stat-card">
+            <div class="stat-header">
+              <div class="stat-icon bg-success-light">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+              </div>
+              <span class="stat-title" data-i18n="cashSales">Cash Sales</span>
+            </div>
+            <div id="stat-cash-sales" class="stat-value">₹0</div>
+            <div class="stat-subtext">Received today</div>
+          </div>
+          
+          <div class="card stat-card">
+            <div class="stat-header">
+              <div class="stat-icon bg-warning-light">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              <span class="stat-title" data-i18n="creditSales">Credit Sales</span>
+            </div>
+            <div id="stat-credit-sales" class="stat-value">₹0</div>
+            <div class="stat-subtext">Pending invoices</div>
+          </div>
+          
+          <div class="card stat-card">
+            <div class="stat-header">
+              <div class="stat-icon bg-danger-light">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
+              <span class="stat-title" data-i18n="pendingUdhaar">Pending Udhaar</span>
+            </div>
+            <div id="stat-pending-udhaar" class="stat-value danger">₹0</div>
+            <div class="stat-subtext">Across all customers</div>
+          </div>
+          
+          <div class="card stat-card">
+            <div class="stat-header">
+              <div class="stat-icon bg-info-light">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+              </div>
+              <span class="stat-title">Store Base</span>
+            </div>
+            <div class="stat-value" style="font-size: 1.5rem; display: flex; gap: 8px;">
+              <span id="stat-total-customers">0</span><span style="color: var(--text-muted); font-weight: normal;">Cust</span>
+              <span style="color: var(--border);">|</span>
+              <span id="stat-total-products">0</span><span style="color: var(--text-muted); font-weight: normal;">Prod</span>
+            </div>
+            <div class="stat-subtext">Total active list</div>
+          </div>
+        </div>
+        
+        <!-- Reports Visualization Panel Grid -->
+        <div class="dashboard-grid">
+          <div class="card visual-card">
+            <div class="visual-header">
+              <h3 data-i18n="weeklySales">Weekly Sales Trend</h3>
+              <span class="product-row-category" style="background-color: var(--primary-light); color: var(--primary);">June 2026</span>
+            </div>
+            <div class="visual-content">
+              <!-- Pure Responsive SVG Graph Chart -->
+              <svg id="dashboard-trend-chart" class="svg-chart" viewBox="0 0 500 240">
+                <defs>
+                  <linearGradient id="chart-gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="var(--primary)"/>
+                    <stop offset="100%" stop-color="var(--primary)" stop-opacity="0"/>
+                  </linearGradient>
+                </defs>
+                <!-- Rendered dynamically by app.js -->
+              </svg>
+            </div>
+          </div>
+          
+          <div class="card visual-card">
+            <div class="visual-header">
+              <h3 data-i18n="topSelling">Top Selling Products</h3>
+            </div>
+            <div class="visual-content" style="align-items: flex-start;">
+              <div id="top-products-tally" class="top-products-list">
+                <!-- Top Products Bars Rendered dynamically -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- ==========================================
+           2. FAST BILLING SCREEN
+           ========================================== -->
+      <section id="billing-view" class="page-view">
+        <div class="billing-layout">
+          
+          <!-- Billing Left Section: Instant Product Entry & Selection -->
+          <div class="billing-search-panel">
+            <div class="card" style="padding: 20px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <div class="search-box-container">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                  </svg>
+                  <input type="text" id="billing-product-search" class="form-control billing-search-input" data-i18n-placeholder="searchProductPlaceholder" placeholder="Search product by name or category...">
+                  
+                  <!-- Suggestion Dropdown Panel -->
+                  <div id="billing-search-suggestions" class="search-suggestions-dropdown"></div>
+                </div>
+              </div>
+              <p class="stat-subtext" style="margin-top: 8px;" data-i18n="billingTip">Enter Qty OR Amount. The other will calculate automatically!</p>
+            </div>
+            
+            <div class="quick-picks-container">
+              <span class="quick-picks-header">Quick Pick Categories / Items</span>
+              <div id="quick-picks-items-grid" class="quick-picks-grid">
+                <!-- Populated dynamically with active store inventory -->
+              </div>
+            </div>
+          </div>
+          
+          <!-- Billing Right Section: Active Cart and Bill Generation -->
+          <div class="billing-cart-panel">
+            <div class="card" style="display: flex; flex-direction: column; gap: 16px;">
+              <div class="visual-header" style="margin-bottom: 0;">
+                <h3 data-i18n="cart">Shopping Cart</h3>
+                <span id="cart-item-count" class="product-row-category">0 Items</span>
+              </div>
+              
+              <!-- Shopping Cart Items List -->
+              <div class="cart-table-wrapper">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th data-i18n="productName">Product Name</th>
+                      <th data-i18n="rate">Rate</th>
+                      <th data-i18n="quantity">Qty</th>
+                      <th data-i18n="amount">Amount</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="cart-items-body">
+                    <!-- Added billing products go here dynamically -->
+                    <tr>
+                      <td colspan="5" style="text-align: center; color: var(--text-muted);" data-i18n="noData">No items added to the cart</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              <!-- Totals and Checkout details -->
+              <div class="checkout-totals-summary">
+                <div class="summary-row">
+                  <span data-i18n="subtotal">Subtotal</span>
+                  <span id="summary-subtotal">₹0.00</span>
+                </div>
+                <div class="summary-row">
+                  <span data-i18n="discount">Discount (₹)</span>
+                  <input type="number" id="summary-discount-input" class="cart-input" style="width: 90px;" value="0" min="0">
+                </div>
+                <div class="summary-row grand-total">
+                  <span data-i18n="grandTotal">Grand Total</span>
+                  <span id="summary-grand-total">₹0.00</span>
+                </div>
+              </div>
+              
+              <div class="checkout-controls">
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <span class="form-group label" data-i18n="paymentMode" style="margin-bottom: 8px;">Payment Mode</span>
+                  <div class="payment-mode-selector">
+                    <button id="pay-mode-cash" class="pay-mode-btn active" data-mode="cash" data-i18n="cash">Cash (नकद)</button>
+                    <button id="pay-mode-udhaar" class="pay-mode-btn" data-mode="udhaar" data-i18n="udhaar">Udhaar (उधार)</button>
+                  </div>
+                </div>
+                
+                <!-- Dynamic Udhaar Customer picker inline -->
+                <div id="billing-udhaar-customer-box" class="form-group udhaar-customer-select-box" style="display: none;">
+                  <select id="billing-customer-dropdown" class="form-control">
+                    <option value="" data-i18n="selectCustomer">Select Customer...</option>
+                  </select>
+                  <button id="btn-add-customer-inline" class="btn btn-secondary" style="padding: 0 12px;" data-i18n="addCustomerInline">+ Add Customer</button>
+                </div>
+                
+                <div class="form-row">
+                  <button id="btn-clear-cart" class="btn btn-secondary" data-i18n="clearCart">Clear Cart</button>
+                  <button id="btn-checkout-bill" class="btn btn-primary" data-i18n="checkout">Generate Bill</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </section>
+      
+      <!-- ==========================================
+           3. PRODUCTS PAGE (CRUD)
+           ========================================== -->
+      <section id="products-view" class="page-view">
+        <div class="card table-card">
+          
+          <div class="table-header-bar">
+            <div class="search-filter-controls">
+              <input type="text" id="product-list-search" class="form-control" placeholder="Search product name or category...">
+              <div class="filter-dropdown-wrapper" style="display: flex; flex-direction: column; gap: 4px;">
+                <select id="product-category-filter" class="form-control" style="width: 150px;">
+                  <!-- Dynamically populated -->
+                </select>
+                <a href="#" id="link-quick-add-category" style="font-size: 0.75rem; color: var(--primary); font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 2px;">+ Add New Category</a>
+              </div>
+            </div>
+            <button id="btn-add-product" class="btn btn-primary" data-i18n="addProduct">+ Add New Product</button>
+          </div>
+          
+          <table class="table">
+            <thead>
+              <tr>
+                <th data-i18n="productName">Product Name</th>
+                <th data-i18n="category">Category</th>
+                <th data-i18n="unit">Unit</th>
+                <th data-i18n="sellingRate">Selling Rate</th>
+                <th data-i18n="actions" class="num-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="product-table-body">
+              <!-- Rendered dynamically by app.js -->
+            </tbody>
+          </table>
+          
+        </div>
+      </section>
+      
+      <!-- ==========================================
+           3.5 CATEGORIES VIEW
+           ========================================== -->
+      <section id="categories-view" class="page-view">
+        <div class="card table-card">
+          <div class="table-header-bar">
+            <div class="search-filter-controls">
+              <input type="text" id="category-list-search" class="form-control" placeholder="Search category...">
+            </div>
+            <button id="btn-add-category" class="btn btn-primary" data-i18n="addCategory">+ Add New Category</button>
+          </div>
+          
+          <table class="table">
+            <thead>
+              <tr>
+                <th data-i18n="categoryName">Category Name</th>
+                <th data-i18n="description">Description</th>
+                <th data-i18n="actions" class="num-cell">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="category-table-body">
+              <!-- Rendered dynamically by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+      
+      <!-- ==========================================
+           4. KHATABOOK / UDHAAR LEDGER
+           ========================================== -->
+      <section id="khatabook-view" class="page-view">
+        <div class="khatabook-layout">
+          
+          <!-- Khatabook Left List: Customers grid -->
+          <div class="customer-list-card card">
+            <div class="visual-header" style="margin-bottom: 0;">
+              <h3 data-i18n="khatabook">Khatabook</h3>
+              <button id="btn-add-customer" class="btn btn-primary btn-icon-only">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                </svg>
+              </button>
+            </div>
+            
+            <input type="text" id="khatabook-customer-search" class="form-control" placeholder="Search customer name or phone...">
+            
+            <div id="khatabook-customers-list" class="customer-list-group">
+              <!-- Rendered dynamically by app.js -->
+            </div>
+          </div>
+          
+          <!-- Khatabook Right Details: Ledger Timeline & Collections -->
+          <div class="ledger-profile-wrapper">
+            <div class="card" id="ledger-detail-panel" style="display: none;">
+              
+              <div class="ledger-summary-header">
+                <div>
+                  <h3 id="ledger-customer-title" style="font-size: 1.35rem; font-weight: 700; color: var(--dark);">Sandeep Kaur</h3>
+                  <p id="ledger-customer-phone" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Phone: 9855566677</p>
+                </div>
+                <button id="btn-record-payment" class="btn btn-primary" data-i18n="recordPayment">Record Payment</button>
+              </div>
+              
+              <div id="ledger-status-card" class="ledger-balance-card pending" style="margin: 20px 0;">
+                <div class="ledger-balance-info pending">
+                  <h4 data-i18n="totalLedgerBalance">Pending Balance</h4>
+                  <p id="ledger-balance-value">₹1,250</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="36" height="36" style="opacity: 0.35;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                </svg>
+              </div>
+              
+              <h4 class="quick-picks-header" style="margin-bottom: 12px;" data-i18n="transactionHistory">Transaction Ledger History</h4>
+              
+              <div id="ledger-timeline-container" class="ledger-timeline-wrapper">
+                <!-- Ledger lists rendered dynamically -->
+              </div>
+              
+            </div>
+            
+            <!-- Ledger empty state -->
+            <div class="card" id="ledger-empty-panel" style="padding: 60px 24px; text-align: center; color: var(--text-muted);">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="48" height="48" style="margin-bottom: 12px; stroke-width: 1.5; color: var(--border);">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+              </svg>
+              <h4 style="color: var(--text);">No Customer Selected</h4>
+              <p style="font-size: 0.85rem; margin-top: 4px;">Click on a customer from the left Khatabook list to view their invoices, balances, and submit GPay/Cash payments.</p>
+            </div>
+          </div>
+          
+        </div>
+      </section>
+      
+      <!-- ==========================================
+           5. REPORTS PAGE
+           ========================================== -->
+      <section id="reports-view" class="page-view">
+        <div class="card" style="margin-bottom: 24px;">
+          <div class="visual-header" style="margin-bottom: 16px;">
+            <h3 data-i18n="reports">Financial Reports</h3>
+            <div class="search-filter-controls" style="width: auto;">
+              <select id="report-type-filter" class="form-control" style="width: 200px;">
+                <option value="daily" data-i18n="dailyReport">Daily Report</option>
+                <option value="monthly" data-i18n="monthlyReport">Monthly Report</option>
+                <option value="product" data-i18n="productSales">Product-wise Sales</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-row" style="margin-bottom: 20px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>From Date</label>
+              <input type="date" id="report-from-date" class="form-control" value="2026-06-01">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label>To Date</label>
+              <input type="date" id="report-to-date" class="form-control" value="2026-06-01">
+            </div>
+          </div>
+        </div>
+        
+        <div class="card table-card">
+          <div class="table-header-bar">
+            <h3 id="report-result-title" style="font-size: 1.1rem; font-weight: 700; color: var(--dark);">Daily Sales Breakdown</h3>
+            <span id="report-grand-tally" class="product-row-category" style="background-color: var(--primary-light); color: var(--primary); font-size: 0.9rem; font-weight: 700; padding: 6px 14px;">Total Sales: ₹1,020</span>
+          </div>
+          
+          <table class="table">
+            <thead id="report-table-head">
+              <!-- Populated dynamically depending on selected filter (daily, monthly, product) -->
+            </thead>
+            <tbody id="report-table-body">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+      
+      <!-- ==========================================
+           6. SETTINGS PAGE
+           ========================================== -->
+      <section id="settings-view" class="page-view">
+        <div class="settings-grid">
+          
+          <!-- Shop Details Form & Firebase config Panel -->
+          <div class="card" style="display: flex; flex-direction: column; gap: 24px;">
+            
+            <div>
+              <h3 class="settings-section-title" data-i18n="shopDetails">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+                Shop Profile Settings
+              </h3>
+              
+              <form id="settings-profile-form">
+                <div class="form-group">
+                  <label data-i18n="shopName">Shop Name</label>
+                  <input type="text" id="settings-shop-name" class="form-control" value="Gurbhej Grocery Store">
+                </div>
+                <div class="form-group">
+                  <label data-i18n="shopPhone">Contact Phone</label>
+                  <input type="text" id="settings-shop-phone" class="form-control" value="9876543210">
+                </div>
+                <div class="form-group">
+                  <label data-i18n="shopAddress">Shop Address</label>
+                  <textarea id="settings-shop-address" class="form-control" rows="2">Main Bazaar, Gurdaspur, Punjab, India</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" data-i18n="save">Save Shop Profile</button>
+              </form>
+            </div>
+            
+            <div>
+              <h3 class="settings-section-title" data-i18n="firebaseSettings">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+                </svg>
+                Cloud Database Integration
+              </h3>
+              
+              <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                <input type="checkbox" id="settings-firebase-enable" style="width: 18px; height: 18px; accent-color: var(--primary);">
+                <label for="settings-firebase-enable" style="margin-bottom: 0; font-weight: 600;" data-i18n="enableFirebase">Sync Data to Firebase (Cloud Mode)</label>
+              </div>
+              
+              <div id="firebase-config-fields-panel" style="display: none; animation: slideDown 0.25s ease-out; margin-top: 16px;">
+                <p class="backup-instruction" style="margin-bottom: 12px;">Paste your Firebase Web App credentials block to initialize syncing:</p>
+                <div class="form-group">
+                  <label>API Key</label>
+                  <input type="password" id="firebase-config-apiKey" class="form-control" placeholder="AIzaSy...">
+                </div>
+                <div class="form-group">
+                  <label>Project ID</label>
+                  <input type="text" id="firebase-config-projectId" class="form-control" placeholder="gurbhej-grocery-store">
+                </div>
+                <div class="form-group">
+                  <label>Auth Domain</label>
+                  <input type="text" id="firebase-config-authDomain" class="form-control" placeholder="gurbhej-grocery-store.firebaseapp.com">
+                </div>
+                <div class="form-group">
+                  <label>Storage Bucket</label>
+                  <input type="text" id="firebase-config-storageBucket" class="form-control" placeholder="gurbhej-grocery-store.appspot.com">
+                </div>
+                <div class="form-group">
+                  <label>App ID</label>
+                  <input type="text" id="firebase-config-appId" class="form-control" placeholder="1:12345678:web:... ">
+                </div>
+                <button id="btn-save-firebase" class="btn btn-primary" data-i18n="save">Connect & Sync Firebase</button>
+              </div>
+            </div>
+            
+          </div>
+          
+          <!-- Offline Backups & Resets Panel -->
+          <div class="card">
+            <h3 class="settings-section-title" data-i18n="localBackup">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+              </svg>
+              Offline Backups & Maintenance
+            </h3>
+            
+            <div class="backup-card-content">
+              <p class="backup-instruction">Export your entire store catalog, active Khatabook list, and billing invoices to a local JSON file. You can restore this file at any time or transfer it to another computer.</p>
+              
+              <button id="btn-backup-data" class="btn btn-secondary" style="width: 100%; justify-content: flex-start;" data-i18n="backupBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="18" height="18">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Download Backup (JSON)
+              </button>
+              
+              <div class="file-upload-zone">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32" class="upload-icon">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <div class="upload-text" data-i18n="restoreBtn">Upload & Restore Backup File</div>
+                <div class="upload-subtext">Drag & drop or click to upload .json backup</div>
+                <input type="file" id="settings-restore-file" accept=".json">
+              </div>
+              
+              <div style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: 10px;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--danger); margin-bottom: 8px;">DANGER ZONE</h4>
+                <p class="backup-instruction" style="margin-bottom: 12px;" data-i18n="resetWarning">Warning: Resetting the database will delete all local store records permanently!</p>
+                <button id="btn-reset-db" class="btn btn-danger" style="width: 100%;" data-i18n="resetBtn">Reset Local Database</button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </section>
+      
+    </main>
+  </div>
+  
+  <!-- ==========================================
+       MODAL OVERLAYS AND POPUPS
+       ========================================== -->
+       
+  <!-- Modal 1: HIGH FIDELITY INVOICE PREVIEW -->
+  <div id="modal-invoice-slip" class="modal-overlay">
+    <div class="modal-container invoice-modal-container">
+      <div class="modal-header">
+        <h3 data-i18n="invoice">Store Invoice Slip</h3>
+        <button class="btn-close-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        
+        <!-- Authentic Thermal Receipt Wrapper -->
+        <div id="thermal-receipt-paper" class="invoice-paper-wrapper">
+          <div class="invoice-shop-header">
+            <h2 id="invoice-shop-name">Gurbhej Grocery Store</h2>
+            <p id="invoice-shop-tagline">Fresh groceries & trusted service</p>
+            <p id="invoice-shop-address">Main Bazaar, Gurdaspur, Punjab</p>
+            <p id="invoice-shop-phone">Phone: 9876543210</p>
+          </div>
+          
+          <div class="invoice-meta-block">
+            <div class="invoice-meta-row">
+              <span data-i18n="invoiceNumber">Invoice No:</span>
+              <strong id="invoice-no-val">GS-1002</strong>
+            </div>
+            <div class="invoice-meta-row">
+              <span data-i18n="dateTime">Date & Time:</span>
+              <span id="invoice-date-val">2026-06-01 11:15</span>
+            </div>
+            <div class="invoice-meta-row">
+              <span data-i18n="customer">Customer:</span>
+              <span id="invoice-customer-val">Walk-in Customer</span>
+            </div>
+            <div class="invoice-meta-row" id="invoice-phone-row" style="display: none;">
+              <span data-i18n="phone">Phone:</span>
+              <span id="invoice-phone-val">-</span>
+            </div>
+          </div>
+          
+          <table class="invoice-items-table">
+            <thead>
+              <tr>
+                <th data-i18n="productName">Item Description</th>
+                <th class="num-cell" data-i18n="rate">Rate</th>
+                <th class="num-cell" data-i18n="quantity">Qty</th>
+                <th class="num-cell" data-i18n="amount">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="invoice-items-body">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+          
+          <div class="invoice-totals-block">
+            <div class="invoice-total-row">
+              <span data-i18n="subtotal">Subtotal:</span>
+              <span id="invoice-subtotal-val">₹540.00</span>
+            </div>
+            <div class="invoice-total-row">
+              <span data-i18n="discount">Discount:</span>
+              <span id="invoice-discount-val">₹40.00</span>
+            </div>
+            <div class="invoice-total-row grand">
+              <span data-i18n="grandTotal">GRAND TOTAL:</span>
+              <span id="invoice-total-val">₹500.00</span>
+            </div>
+            <div class="invoice-total-row" style="font-weight: bold; border-top: 1px dashed #000; padding-top: 4px;">
+              <span>Payment Mode:</span>
+              <span id="invoice-paymode-val">CASH</span>
+            </div>
+          </div>
+          
+          <div class="invoice-footer-thanks">
+            <p data-i18n="thankYouMsg">Thank you for shopping with us! Visit again.</p>
+            <p style="margin-top: 4px;">Powered by Gurbhej Billing System</p>
+          </div>
+        </div>
+        
+        <!-- Receipt Action Controls -->
+        <div class="invoice-action-controls">
+          <button id="invoice-print-btn" class="btn btn-secondary" data-i18n="printInvoice">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-3a2 2 0 00-2-2H9a2 2 0 00-2 2v3a2 2 0 002 2zm0-9a9 9 0 0118 0z"/>
+            </svg>
+            Print
+          </button>
+          <button id="invoice-pdf-btn" class="btn btn-secondary" data-i18n="downloadPDF">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            PDF
+          </button>
+          <button id="invoice-whatsapp-btn" class="btn btn-primary" data-i18n="shareWhatsApp">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" width="16" height="16">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.45L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.967C16.68 1.973 14.198 1.05 11.59 1.05c-5.443 0-9.87 4.373-9.874 9.804-.002 1.8.481 3.562 1.398 5.107L2.1 19.988l4.547-1.18.001-.001zM17.56 14.34c-.326-.163-1.93-.953-2.229-1.062-.299-.109-.517-.163-.734.163-.217.327-.843 1.062-1.033 1.28-.19.217-.379.244-.705.081-.326-.162-1.378-.507-2.625-1.617-.97-.864-1.625-1.933-1.815-2.259-.19-.327-.02-.504.143-.666.147-.146.326-.381.49-.572.163-.19.217-.327.326-.54.109-.217.054-.408-.027-.57-.081-.164-.734-1.77-.979-2.369-.24-.58-.484-.501-.666-.51l-.568-.009c-.195 0-.514.073-.783.367-.269.294-1.027 1.006-1.027 2.454 0 1.448 1.054 2.846 1.202 3.045.148.199 2.073 3.166 5.023 4.44.702.303 1.25.485 1.677.62.705.224 1.346.193 1.854.117.565-.084 1.93-.789 2.202-1.554.271-.765.271-1.42.19-1.554-.08-.135-.3-.217-.626-.38z"/>
+            </svg>
+            WhatsApp
+          </button>
+        </div>
+        
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal 2: ADD / EDIT PRODUCT FORM -->
+  <div id="modal-product" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="product-modal-title" data-i18n="addProduct">Add New Product</h3>
+        <button class="btn-close-modal">✕</button>
+      </div>
+      <form id="product-form">
+        <input type="hidden" id="product-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>English Name</label>
+            <input type="text" id="product-name" class="form-control" required placeholder="e.g. Dal Bhujia">
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>Hindi Name (Auto-filled)</label>
+              <input type="text" id="product-name-hi" class="form-control" placeholder="e.g. दाल भुजिया">
+            </div>
+            <div class="form-group">
+              <label>Punjabi Name (Auto-filled)</label>
+              <input type="text" id="product-name-pa" class="form-control" placeholder="e.g. ਦਾਲ ਭੁਜੀਆ">
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label data-i18n="category">Category</label>
+              <select id="product-category" class="form-control" required>
+                <!-- Filled dynamically by app.js -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label data-i18n="unit">Unit</label>
+              <select id="product-unit" class="form-control" required>
+                <option value="kg" data-i18n="kg">kg</option>
+                <option value="gram" data-i18n="gram">gram</option>
+                <option value="litre" data-i18n="litre">litre</option>
+                <option value="piece" data-i18n="piece">piece</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label data-i18n="sellingRate">Selling Rate (₹)</label>
+            <input type="number" id="product-rate" class="form-control" required min="0" step="0.01" placeholder="e.g. 46">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-close-modal" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-i18n="save">Save Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Modal 2.5: ADD / EDIT CATEGORY FORM -->
+  <div id="modal-category" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="category-modal-title" data-i18n="addCategory">Add New Category</h3>
+        <button class="btn-close-modal">✕</button>
+      </div>
+      <form id="category-form">
+        <input type="hidden" id="category-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>English Name</label>
+            <input type="text" id="category-name" class="form-control" required placeholder="e.g. Sweets">
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label>Hindi Name (Auto-filled)</label>
+              <input type="text" id="category-name-hi" class="form-control" placeholder="e.g. स्वीट्स">
+            </div>
+            <div class="form-group">
+              <label>Punjabi Name (Auto-filled)</label>
+              <input type="text" id="category-name-pa" class="form-control" placeholder="e.g. ਸਵੀਟਸ">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label data-i18n="description">Description</label>
+            <input type="text" id="category-description" class="form-control" placeholder="e.g. Delicious sweet items">
+          </div>
+        </div>
+        
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-close-modal" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-i18n="saveCategory">Save Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2.6: QUICK ADD CATEGORY FORM -->
+  <div id="modal-quick-category" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-container" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 data-i18n="addCategory">Quick Add Category</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-quick-category">✕</button>
+      </div>
+      <form id="quick-category-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>English Name</label>
+            <input type="text" id="quick-category-name" class="form-control" required placeholder="e.g. Sweets">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Hindi Name (Auto-filled)</label>
+              <input type="text" id="quick-category-name-hi" class="form-control" placeholder="e.g. स्वीट्स">
+            </div>
+            <div class="form-group">
+              <label>Punjabi Name (Auto-filled)</label>
+              <input type="text" id="quick-category-name-pa" class="form-control" placeholder="e.g. ਸਵੀਟਸ">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-quick-category" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-i18n="saveCategory">Save Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Modal 3: ADD / EDIT CUSTOMER FORM -->
+  <div id="modal-customer" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="customer-modal-title" data-i18n="addCustomer">Add New Customer</h3>
+        <button class="btn-close-modal">✕</button>
+      </div>
+      <form id="customer-form">
+        <div class="modal-body">
+          <div class="form-group">
+            <label data-i18n="customerName">Customer Name</label>
+            <input type="text" id="customer-name" class="form-control" required placeholder="e.g. Gurbhej Singh">
+          </div>
+          <div class="form-group">
+            <label data-i18n="customerPhone">Phone Number (Optional)</label>
+            <input type="tel" id="customer-phone" class="form-control" placeholder="e.g. 9876543210" pattern="[0-9]{10}">
+          </div>
+          <div class="form-group">
+            <label data-i18n="pendingUdhaar">Opening Outstanding Balance (₹) (Optional)</label>
+            <input type="number" id="customer-opening-balance" class="form-control" value="0" min="0">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-close-modal" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-i18n="save">Save Customer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Modal 4: RECORD PAYMENT RECEIVED -->
+  <div id="modal-payment" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 data-i18n="recordPayment">Record Payment Received</h3>
+        <button class="btn-close-modal">✕</button>
+      </div>
+      <form id="payment-form">
+        <input type="hidden" id="payment-customer-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label data-i18n="paymentAmount">Payment Amount Received (₹)</label>
+            <input type="number" id="payment-amount" class="form-control" required min="1" placeholder="e.g. 500">
+          </div>
+          <div class="form-group">
+            <label data-i18n="paymentModeLabel">Payment Mode</label>
+            <select id="payment-mode" class="form-control" required>
+              <option value="Cash">Cash (ਨਕਦ)</option>
+              <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
+              <option value="Bank">Bank Transfer</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label data-i18n="remarks">Remarks / Description</label>
+            <input type="text" id="payment-remarks" class="form-control" placeholder="e.g. Paid balance via Google Pay">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-close-modal" data-i18n="cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" data-i18n="save">Submit Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-notification">
+    <span id="toast-icon">✓</span>
+    <span id="toast-text">Action Completed Successfully!</span>
+  </div>
+
+  <!-- Main ES6 Modular Logic Controller -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
