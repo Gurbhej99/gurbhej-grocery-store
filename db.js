@@ -457,6 +457,18 @@ class DatabaseEngine {
 
   async saveCustomer(customer) {
     const list = this.getCustomers();
+    const phone = customer.phone ? customer.phone.trim() : "";
+    
+    if (!customer.id && phone) {
+      const existing = list.find(c => c.phone && c.phone.trim() === phone);
+      if (existing) {
+        customer.id = existing.id;
+        // Merge pending balances or take the maximum/existing
+        customer.pendingBalance = customer.pendingBalance || existing.pendingBalance || 0;
+        customer.createdAt = existing.createdAt || new Date().toISOString();
+      }
+    }
+
     if (!customer.id) {
       customer.id = "cust_" + Date.now();
       customer.pendingBalance = customer.pendingBalance || 0;

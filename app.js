@@ -226,7 +226,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Database sync callback (fired when Firebase cloud sync triggers an update)
     updateCloudStatusIndicator();
     populateCategoryDropdowns();
-    renderActivePage();
+    const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
+    const shop = DB.getSettings();
+    if (isSetupComplete || shop.profileCompleted) {
+      renderActivePage();
+    }
     checkFirstTimeProfile();
   });
 
@@ -266,14 +270,58 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
-  // Bind Hamburger / More popover items
+  // Helper functions to open and close Mobile More Options Menu (Requirements 2 & 3)
+  function closeMoreOptionsModal() {
+    const morePopover = document.getElementById("mobile-more-popover");
+    if (morePopover) {
+      morePopover.style.display = "none";
+      morePopover.classList.remove("active");
+      morePopover.setAttribute("aria-hidden", "true");
+    }
+    document.body.classList.remove("modal-open");
+    document.body.classList.remove("overlay-active");
+  }
+
+  function navigateToPage(pageName) {
+    switchPage(pageName);
+  }
+
+  function openMoreMenu() {
+    const morePopover = document.getElementById("mobile-more-popover");
+    if (morePopover) {
+      morePopover.style.display = "flex";
+      morePopover.classList.add("active");
+      morePopover.removeAttribute("aria-hidden");
+    }
+    document.body.classList.add("modal-open");
+    document.body.classList.add("overlay-active");
+  }
+
+  // Make them available globally
+  window.closeMoreOptionsModal = closeMoreOptionsModal;
+  window.navigateToPage = navigateToPage;
+
+  // Bind Hamburger / More popover items individually (Requirement 1 & 2)
   document.querySelectorAll(".mobile-more-item").forEach(link => {
     link.addEventListener("click", (e) => {
-      const button = e.currentTarget;
-      const page = button.dataset.page;
-      switchPage(page);
-      document.getElementById("mobile-more-popover").style.display = "none";
+      e.preventDefault();
+      e.stopPropagation();
+      const page = e.currentTarget.getAttribute("data-more-page") || e.currentTarget.getAttribute("data-page");
+      
+      closeMoreOptionsModal();
+      navigateToPage(page);
     });
+  });
+
+  // Event Delegation for Mobile More Menu Item clicks (Requirement 4)
+  document.addEventListener("click", function(e) {
+    const item = e.target.closest("[data-more-page]");
+    if (!item) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const page = item.dataset.morePage;
+    closeMoreOptionsModal();
+    setTimeout(() => navigateToPage(page), 50);
   });
 
   // Bind More button toggling
@@ -281,20 +329,23 @@ document.addEventListener("DOMContentLoaded", async () => {
   const morePopover = document.getElementById("mobile-more-popover");
   const closePopover = document.getElementById("btn-close-more-popover");
 
-  if (moreBtn && morePopover) {
+  if (moreBtn) {
     moreBtn.addEventListener("click", () => {
-      morePopover.style.display = "flex";
+      openMoreMenu();
     });
   }
 
-  if (closePopover && morePopover) {
+  if (closePopover) {
     closePopover.addEventListener("click", () => {
-      morePopover.style.display = "none";
+      closeMoreOptionsModal();
     });
+  }
+
+  if (morePopover) {
     // Click outside popover card closes it
     morePopover.addEventListener("click", (e) => {
       if (e.target === morePopover) {
-        morePopover.style.display = "none";
+        closeMoreOptionsModal();
       }
     });
   }
@@ -328,7 +379,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupProfileSetupEventListeners();
 
   // Draw initial page
-  renderActivePage();
+  const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
+  const shop = DB.getSettings();
+  if (isSetupComplete || shop.profileCompleted) {
+    renderActivePage();
+  }
   checkFirstTimeProfile();
   
   showToast("Ready / ਤਿਆਰ / तैयार", "success");
@@ -472,6 +527,18 @@ function setLanguage(lang) {
 function getTranslation(key) {
   const dict = TRANSLATIONS[state.activeLang] || TRANSLATIONS["en"];
   return dict[key] || TRANSLATIONS["en"][key] || key;
+}
+
+function translateElement(parentEl) {
+  if (!parentEl) return;
+  parentEl.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.dataset.i18n;
+    el.textContent = getTranslation(key);
+  });
+  parentEl.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    el.placeholder = getTranslation(key);
+  });
 }
 
 // ==========================================
@@ -1080,6 +1147,24 @@ function renderSearchSuggestions(matches) {
 }
 
 function addProductToCart(product) {
+  // If product rate is 0, billing should ask "Set Rate" before adding to cart
+  if (parseFloat(product.rate || 0) === 0) {
+    const rateStr = prompt(`Set Rate (₹) for ${product.name}:`, "");
+    if (rateStr === null) return; // user cancelled
+    const rateVal = parseFloat(rateStr);
+    if (isNaN(rateVal) || rateVal < 0) {
+      alert("Please enter a valid rate!");
+      return;
+    }
+    product.rate = rateVal;
+    DB.saveProduct(product); // Persist the rate
+    
+    // Refresh products view if currently on products page
+    if (state.activePage === "products") {
+      renderProducts();
+    }
+  }
+
   // Check if already in cart
   const exists = state.cart.find(item => item.id === product.id);
   if (exists) {
@@ -1288,8 +1373,8 @@ async function generateInvoice() {
         lastVisit: todayStr,
         createdAt: new Date().toISOString()
       };
-      await DB.saveCustomer(newCust);
-      resolvedCustomerId = newCust.id;
+      const saved = await DB.saveCustomer(newCust);
+      resolvedCustomerId = saved.id;
     }
   } else {
     // No phone number
@@ -1738,6 +1823,14 @@ function setupProductEventListeners() {
     prodNameHi.value = transliterateText(text, "hi");
     prodNamePa.value = transliterateText(text, "pa");
   });
+
+  // Bind Load Grocery Catalog click
+  const loadBtn = document.getElementById("btn-load-grocery-catalog");
+  if (loadBtn) {
+    loadBtn.addEventListener("click", () => {
+      loadGroceryCatalog();
+    });
+  }
 
   // Bind Add Product click
   document.getElementById("btn-add-product").addEventListener("click", () => {
@@ -2941,6 +3034,83 @@ function renderReports() {
 }
 
 // ==========================================
+// GROCERY CATALOG LOADER
+// ==========================================
+async function loadGroceryCatalog() {
+  const catalog = {
+    "Atta & Flour": ["Atta", "Maida", "Besan", "Suji", "Makki Atta", "Bajra Atta"],
+    "Rice": ["Basmati Rice", "Normal Rice", "Broken Rice", "Poha", "Murmura"],
+    "Pulses & Dal": ["Moong Dal", "Masoor Dal", "Chana Dal", "Toor Dal", "Urad Dal", "Rajma", "Chole", "Kala Chana", "White Chana"],
+    "Sugar & Salt": ["Sugar", "Jaggery", "Shakkar", "Salt", "Black Salt", "Sendha Namak"],
+    "Oil & Ghee": ["Mustard Oil", "Refined Oil", "Sunflower Oil", "Desi Ghee", "Vanaspati Ghee"],
+    "Spices": ["Haldi", "Mirch Powder", "Dhania Powder", "Garam Masala", "Jeera", "Ajwain", "Rai", "Hing", "Black Pepper", "Elaichi", "Laung", "Dalchini", "Tej Patta"],
+    "Tea & Beverages": ["Tea", "Green Tea", "Coffee", "Milk Powder", "Rooh Afza", "Tang", "Cold Drink", "Juice"],
+    "Snacks": ["Dal Bhujia", "Aloo Bhujia", "Namkeen", "Chips", "Kurkure", "Popcorn", "Biscuit", "Rusk", "Cake", "Chocolate", "Toffee"],
+    "Dairy": ["Milk", "Curd", "Paneer", "Butter", "Cheese", "Lassi"],
+    "Personal Care": ["Bath Soap", "Shampoo", "Toothpaste", "Toothbrush", "Hair Oil", "Face Wash", "Cream", "Powder"],
+    "Cleaning": ["Detergent Powder", "Detergent Soap", "Dishwash Bar", "Dishwash Liquid", "Floor Cleaner", "Toilet Cleaner", "Phenyl", "Harpic"],
+    "Household": ["Matchbox", "Candle", "Agarbatti", "Mosquito Coil", "Tissue Paper", "Aluminum Foil", "Garbage Bag"],
+    "Packaged Food": ["Noodles", "Pasta", "Vermicelli", "Corn Flakes", "Oats", "Jam", "Sauce", "Pickle", "Papad"],
+    "Baby Products": ["Baby Soap", "Baby Oil", "Baby Powder", "Diaper"],
+    "Stationery": ["Pen", "Pencil", "Eraser", "Sharpener", "Notebook", "Fevicol", "Tape"]
+  };
+
+  const existingCategories = DB.getCategories();
+  const existingProducts = DB.getProducts();
+
+  for (const [catName, products] of Object.entries(catalog)) {
+    // 1. Check or add category
+    let category = existingCategories.find(c => c.name.toLowerCase() === catName.toLowerCase());
+    if (!category) {
+      const nameHi = transliterateText(catName, "hi");
+      const namePa = transliterateText(catName, "pa");
+      category = await DB.saveCategory({
+        name: catName,
+        nameHi: nameHi,
+        namePa: namePa,
+        description: `Grocery catalog category for ${catName}`
+      });
+    }
+
+    // 2. Add products under this category
+    for (const prodName of products) {
+      const isDuplicate = existingProducts.some(p => p.name.toLowerCase() === prodName.toLowerCase());
+      if (!isDuplicate) {
+        // Map default unit
+        let unit = "piece";
+        if (["Atta & Flour", "Rice", "Pulses & Dal", "Sugar & Salt"].includes(catName)) {
+          unit = "kg";
+        } else if (catName === "Oil & Ghee") {
+          unit = "litre";
+        } else if (catName === "Spices") {
+          unit = "gram";
+        } else if (["Tea", "Green Tea", "Coffee"].includes(prodName)) {
+          unit = "gram";
+        }
+
+        const nameHi = transliterateText(prodName, "hi");
+        const namePa = transliterateText(prodName, "pa");
+
+        await DB.saveProduct({
+          name: prodName,
+          nameHi: nameHi,
+          namePa: namePa,
+          category: catName,
+          unit: unit,
+          rate: 0
+        });
+      }
+    }
+  }
+
+  showToast("Grocery catalog loaded successfully.", "success");
+  
+  // Refresh active views
+  populateCategoryDropdowns();
+  renderActivePage();
+}
+
+// ==========================================
 // SETTINGS SCREEN & STORAGE BACKUP
 // ==========================================
 function setupSettingsEventListeners() {
@@ -3184,6 +3354,14 @@ function setupSettingsEventListeners() {
     });
   }
 
+  // Load Grocery Catalog settings button
+  const loadSettingsBtn = document.getElementById("btn-load-grocery-catalog-settings");
+  if (loadSettingsBtn) {
+    loadSettingsBtn.addEventListener("click", () => {
+      loadGroceryCatalog();
+    });
+  }
+
   // Clear Sample Data button
   const clearSampleBtn = document.getElementById("btn-clear-sample-data");
   if (clearSampleBtn) {
@@ -3314,7 +3492,7 @@ function renderCustomers() {
   if (tbody) {
     tbody.innerHTML = "";
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">No customers found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">No customers found.</td></tr>`;
     } else {
       filtered.forEach(cust => {
         const tr = document.createElement("tr");
@@ -3324,8 +3502,20 @@ function renderCustomers() {
           <td>${cust.totalBills || 0}</td>
           <td style="font-weight: bold; color: var(--primary);">₹${(cust.totalPurchase || 0).toFixed(2)}</td>
           <td>${cust.lastVisit || "-"}</td>
+          <td class="crm-actions-cell" style="text-align: center;">
+            <button class="btn btn-secondary btn-sm view-cust-history-btn" data-id="${cust.id}" style="padding: 4px 8px; font-size: 0.75rem;">View History</button>
+          </td>
         `;
         tbody.appendChild(tr);
+      });
+
+      // Bind View History click events
+      tbody.querySelectorAll(".view-cust-history-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const customerId = e.target.dataset.id;
+          navigateToPage("khatabook");
+          selectCustomerForLedger(customerId);
+        });
       });
     }
   }
@@ -3412,10 +3602,10 @@ function renderExpenses() {
         const categoryTranslated = getTranslation(categoryKey) || exp.category;
         
         tr.innerHTML = `
-          <td>${exp.date}</td>
-          <td style="font-weight: 600; color: var(--dark);">${categoryTranslated}</td>
-          <td style="text-align: right; font-weight: bold; color: var(--danger);">₹${amountNum % 1 === 0 ? amountNum.toFixed(0) : amountNum.toFixed(2)}</td>
-          <td style="color: var(--text-muted); font-size: 0.95rem;">${exp.note || "-"}</td>
+          <td><span class="exp-val">${exp.date}</span></td>
+          <td style="font-weight: 600; color: var(--dark);"><span class="exp-val">${categoryTranslated}</span></td>
+          <td style="text-align: right; font-weight: bold; color: var(--danger);"><span class="exp-val">₹${amountNum % 1 === 0 ? amountNum.toFixed(0) : amountNum.toFixed(2)}</span></td>
+          <td style="color: var(--text-muted); font-size: 0.95rem;"><span class="exp-val">${exp.note || "-"}</span></td>
           <td style="text-align: center;">
             <div style="display: flex; gap: 6px; justify-content: center;">
               <button class="btn btn-secondary btn-sm edit-exp-btn" data-id="${exp.id}" style="padding: 4px 8px; font-size: 0.75rem;" data-i18n="edit">Edit</button>
@@ -3568,8 +3758,31 @@ function resetExpenseForm() {
 let setupQrBase64 = "";
 
 function checkFirstTimeProfile() {
+  const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
   const shop = DB.getSettings();
-  if (!shop.profileCompleted) {
+  
+  // Existing users should not lose data. If settings already exist, skip setup automatically.
+  if (shop && shop.profileCompleted && !isSetupComplete) {
+    localStorage.setItem("storeSetupComplete", "true");
+    // Show normal app layout
+    const mainEl = document.querySelector("main");
+    if (mainEl) mainEl.style.display = "";
+    const asideEl = document.querySelector("aside");
+    if (asideEl) asideEl.style.display = "";
+    const mobileNav = document.querySelector(".mobile-bottom-nav");
+    if (mobileNav) mobileNav.style.display = "";
+    return;
+  }
+
+  if (!isSetupComplete && !shop.profileCompleted) {
+    // On first launch, do not open Dashboard. Hide layout frameworks.
+    const mainEl = document.querySelector("main");
+    if (mainEl) mainEl.style.display = "none";
+    const asideEl = document.querySelector("aside");
+    if (asideEl) asideEl.style.display = "none";
+    const mobileNav = document.querySelector(".mobile-bottom-nav");
+    if (mobileNav) mobileNav.style.display = "none";
+
     // Populate form fields with existing settings if any
     document.getElementById("setup-shop-name").value = shop.shopName || "";
     document.getElementById("setup-owner-name").value = shop.ownerName || "";
@@ -3602,6 +3815,14 @@ function checkFirstTimeProfile() {
     // Open Setup Screen
     const overlay = document.getElementById("profile-setup-overlay");
     if (overlay) overlay.style.display = "block";
+  } else {
+    // Show normal app layout
+    const mainEl = document.querySelector("main");
+    if (mainEl) mainEl.style.display = "";
+    const asideEl = document.querySelector("aside");
+    if (asideEl) asideEl.style.display = "";
+    const mobileNav = document.querySelector(".mobile-bottom-nav");
+    if (mobileNav) mobileNav.style.display = "";
   }
 }
 
@@ -3691,10 +3912,22 @@ function setupProfileSetupEventListeners() {
       
       showToast("Saving shop profile...", "info");
       DB.saveSettings(updated);
+      
+      // Requirement 5: Set localStorage.setItem("storeSetupComplete","true")
+      localStorage.setItem("storeSetupComplete", "true");
+      
       showToast("Shop profile successfully saved!", "success");
       
       const overlay = document.getElementById("profile-setup-overlay");
       if (overlay) overlay.style.display = "none";
+      
+      // Restore layout frameworks visibility
+      const mainEl = document.querySelector("main");
+      if (mainEl) mainEl.style.display = "";
+      const asideEl = document.querySelector("aside");
+      if (asideEl) asideEl.style.display = "";
+      const mobileNav = document.querySelector(".mobile-bottom-nav");
+      if (mobileNav) mobileNav.style.display = "";
       
       // Sync controls and render dashboard
       renderSettings();
@@ -3732,6 +3965,23 @@ function setupProfileSetupEventListeners() {
       
       const overlay = document.getElementById("profile-setup-overlay");
       if (overlay) overlay.style.display = "block";
+    });
+  }
+
+  // Bind settings "Reset Store Setup" wizard button (Requirement 8)
+  const resetSetupBtn = document.getElementById("btn-reset-setup");
+  if (resetSetupBtn) {
+    resetSetupBtn.addEventListener("click", () => {
+      if (confirm("Are you sure you want to reset the store setup? This will log you out of the current profile and launch the first-time setup wizard.")) {
+        localStorage.removeItem("storeSetupComplete");
+        const shop = DB.getSettings();
+        shop.profileCompleted = false;
+        DB.saveSettings(shop);
+        showToast("Store setup reset! Reloading...", "info");
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      }
     });
   }
 }

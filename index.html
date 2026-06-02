@@ -420,7 +420,15 @@
                 <a href="#" id="link-quick-add-category" style="font-size: 0.75rem; color: var(--primary); font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 2px;">+ Add New Category</a>
               </div>
             </div>
-            <button id="btn-add-product" class="btn btn-primary" data-i18n="addProduct">+ Add New Product</button>
+            <div style="display: flex; gap: 8px;">
+              <button id="btn-load-grocery-catalog" class="btn btn-secondary" style="font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Load Grocery Catalog
+              </button>
+              <button id="btn-add-product" class="btn btn-primary" data-i18n="addProduct">+ Add New Product</button>
+            </div>
           </div>
           
           <table class="table">
@@ -670,20 +678,20 @@
             <div class="visual-header" style="margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
               <div>
                 <h3 data-i18n="expenseHistory">Expense History</h3>
-                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
-                  Total: <strong id="expense-total-tally" style="color: var(--primary); font-size: 1rem;">₹0</strong>
+                <div id="expense-total-tally-container" class="expense-badge-green" style="margin-top: 6px; display: inline-flex; align-items: center; background-color: var(--success-light); color: var(--success); font-weight: 700; font-size: 0.85rem; padding: 6px 14px; border-radius: var(--radius-full); border: 1.5px solid rgba(16, 185, 129, 0.2);">
+                  <span data-i18n="totalExpenses">Total Expenses</span>: <span id="expense-total-tally" style="margin-left: 4px;">₹0</span>
                 </div>
               </div>
               
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <select id="expense-range-filter" class="form-control" style="width: 130px; height: 36px; padding: 4px 8px; font-size: 0.85rem;">
+              <div class="expense-filters-container" style="display: flex; gap: 8px; flex-wrap: nowrap; align-items: center;">
+                <select id="expense-range-filter" class="form-control" style="flex: 1; min-width: 120px; height: 36px; padding: 4px 8px; font-size: 0.85rem;">
                   <option value="this_week" data-i18n="thisWeek">This Week</option>
                   <option value="this_month" selected data-i18n="thisMonth">This Month</option>
                   <option value="all_time" data-i18n="allTime">All Time</option>
                   <option value="custom" data-i18n="custom">Custom Range</option>
                 </select>
                 
-                <select id="expense-cat-filter" class="form-control" style="width: 140px; height: 36px; padding: 4px 8px; font-size: 0.85rem;">
+                <select id="expense-cat-filter" class="form-control" style="flex: 1; min-width: 130px; height: 36px; padding: 4px 8px; font-size: 0.85rem;">
                   <option value="all" data-i18n="allExpenses">All Expenses</option>
                   <option value="Rent" data-i18n="rent">Rent</option>
                   <option value="Electricity" data-i18n="electricity">Electricity</option>
@@ -712,7 +720,7 @@
             
             <!-- Table Container -->
             <div class="table-container" style="max-height: 450px; overflow-y: auto;">
-              <table class="standard-table">
+              <table class="table">
                 <thead>
                   <tr>
                     <th style="width: 20%;" data-i18n="expenseDate">Expense Date</th>
@@ -751,6 +759,7 @@
                 <th>Total Bills</th>
                 <th>Total Purchase</th>
                 <th>Last Visit</th>
+                <th class="crm-actions-header" style="text-align: center;">Actions</th>
               </tr>
             </thead>
             <tbody id="crm-table-body">
@@ -867,6 +876,13 @@
                 <button id="btn-clear-sample-data" class="btn btn-secondary" style="flex: 1; font-weight: 600; font-size: 0.85rem;" data-i18n="clearSampleDataBtn">Clear Sample Data</button>
               </div>
               
+              <button id="btn-load-grocery-catalog-settings" class="btn btn-info" style="width: 100%; margin-bottom: 10px; font-weight: 700; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Load Grocery Catalog
+              </button>
+              
               <div class="file-upload-zone">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="32" height="32" class="upload-icon">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
@@ -880,6 +896,7 @@
                 <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--danger); margin-bottom: 8px;">DANGER ZONE</h4>
                 <p class="backup-instruction" style="margin-bottom: 12px;" data-i18n="resetWarning">Warning: Resetting the database will delete all local store records permanently!</p>
                 <button id="btn-reset-db" class="btn btn-danger" style="width: 100%;" data-i18n="resetBtn">Reset All Local Data</button>
+                <button id="btn-reset-setup" class="btn btn-warning" style="width: 100%; margin-top: 12px; font-weight: 700;">Reset Store Setup Wizard</button>
               </div>
             </div>
           </div>
@@ -1308,7 +1325,7 @@
         <button id="btn-close-more-popover" class="btn-close-modal" style="position: static; font-size: 1.25rem;">✕</button>
       </div>
       <div class="mobile-more-grid">
-        <button class="mobile-more-item" data-page="categories">
+        <button class="mobile-more-item" data-page="categories" data-more-page="categories">
           <div class="mobile-more-icon-wrapper" style="background-color: var(--primary-light); color: var(--primary);">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -1317,7 +1334,7 @@
           <span data-i18n="categories">Categories</span>
         </button>
         
-        <button class="mobile-more-item" data-page="khatabook">
+        <button class="mobile-more-item" data-page="khatabook" data-more-page="khatabook">
           <div class="mobile-more-icon-wrapper" style="background-color: #fef3c7; color: #d97706;">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
@@ -1325,8 +1342,8 @@
           </div>
           <span data-i18n="khatabook">Khatabook</span>
         </button>
-
-        <button class="mobile-more-item" data-page="customers">
+        
+        <button class="mobile-more-item" data-page="customers" data-more-page="customers">
           <div class="mobile-more-icon-wrapper" style="background-color: #e0f2fe; color: #0284c7;">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
@@ -1335,7 +1352,7 @@
           <span data-i18n="customers">Customers</span>
         </button>
         
-        <button class="mobile-more-item" data-page="expenses">
+        <button class="mobile-more-item" data-page="expenses" data-more-page="expenses">
           <div class="mobile-more-icon-wrapper" style="background-color: #fee2e2; color: #ef4444;">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1344,7 +1361,7 @@
           <span data-i18n="expenses">Expenses</span>
         </button>
         
-        <button class="mobile-more-item" data-page="settings">
+        <button class="mobile-more-item" data-page="settings" data-more-page="settings">
           <div class="mobile-more-icon-wrapper" style="background-color: #f3e8ff; color: #a855f7;">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
@@ -1402,26 +1419,26 @@
         
         <!-- Section 2: UPI details -->
         <div>
-          <h4 style="color: var(--dark); font-weight: 700; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Paytm / UPI Payment Settings</h4>
+          <h4 style="color: var(--dark); font-weight: 700; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">Paytm / UPI Payment Settings (Optional)</h4>
           
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div class="form-group" style="margin-bottom: 0;">
-              <label style="font-weight: 600; font-size: 0.85rem;">UPI Name *</label>
-              <input type="text" id="setup-upi-name" class="form-control" placeholder="e.g. Gurbhej Singh" required>
+              <label style="font-weight: 600; font-size: 0.85rem;">UPI Name (Optional)</label>
+              <input type="text" id="setup-upi-name" class="form-control" placeholder="e.g. Gurbhej Singh">
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-              <label style="font-weight: 600; font-size: 0.85rem;">UPI Phone *</label>
-              <input type="text" id="setup-upi-phone" class="form-control" placeholder="e.g. 7973679747" required>
+              <label style="font-weight: 600; font-size: 0.85rem;">UPI Phone (Optional)</label>
+              <input type="text" id="setup-upi-phone" class="form-control" placeholder="e.g. 7973679747">
             </div>
           </div>
           
           <div class="form-group" style="margin-bottom: 12px;">
-            <label style="font-weight: 600; font-size: 0.85rem;">UPI ID *</label>
-            <input type="text" id="setup-upi-id" class="form-control" placeholder="e.g. paytm.s1sd9a3@pty" required>
+            <label style="font-weight: 600; font-size: 0.85rem;">UPI ID (Optional)</label>
+            <input type="text" id="setup-upi-id" class="form-control" placeholder="e.g. paytm.s1sd9a3@pty">
           </div>
           
           <div class="form-group" style="margin-bottom: 0;">
-            <label style="font-weight: 600; font-size: 0.85rem;">Upload UPI QR Code Image</label>
+            <label style="font-weight: 600; font-size: 0.85rem;">Upload UPI QR Code Image (Optional)</label>
             <div style="display: flex; gap: 12px; align-items: center;">
               <input type="file" id="setup-upi-qr" accept="image/*" class="form-control" style="padding: 4px;">
               <button type="button" id="btn-setup-remove-qr" class="btn btn-secondary" style="display: none; padding: 0 12px; height: 38px;">Remove</button>
@@ -1434,7 +1451,7 @@
         
         <!-- Buttons -->
         <div style="display: flex; gap: 12px; margin-top: 10px;">
-          <button type="submit" class="btn btn-primary" style="flex: 2; height: 44px; font-weight: 700;">Save Profile & Open App</button>
+          <button type="submit" class="btn btn-primary" style="flex: 2; height: 44px; font-weight: 700;">Save & Start Using App</button>
           <button type="button" id="btn-setup-reset" class="btn btn-secondary" style="flex: 1; height: 44px;">Reset Fields</button>
           <button type="button" id="btn-setup-close" class="btn btn-secondary" style="display: none; flex: 1; height: 44px;">Cancel</button>
         </div>

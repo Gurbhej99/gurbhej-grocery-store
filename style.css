@@ -340,6 +340,16 @@ header {
   background-color: #dc2626;
 }
 
+.btn-warning {
+  background-color: var(--warning);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-warning:hover {
+  background-color: #d97706;
+}
+
 .btn-icon-only {
   width: 38px;
   height: 38px;
@@ -2868,10 +2878,288 @@ body.modal-open {
   }
 }
 
+/* Desktop Expense Table Columns Spacing and Widths */
+#expenses-view .table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed; /* Fix column sizes */
+}
+
+#expenses-view .table th:nth-child(1),
+#expenses-view .table td:nth-child(1) {
+  width: 18% !important; /* Date */
+}
+
+#expenses-view .table th:nth-child(2),
+#expenses-view .table td:nth-child(2) {
+  width: 20% !important; /* Category */
+}
+
+#expenses-view .table th:nth-child(3),
+#expenses-view .table td:nth-child(3) {
+  width: 15% !important; /* Amount */
+  text-align: right !important;
+}
+
+#expenses-view .table th:nth-child(4),
+#expenses-view .table td:nth-child(4) {
+  width: 32% !important; /* Note / Description - gives it enough width! */
+  word-wrap: break-word;
+  white-space: normal;
+  color: var(--text-muted);
+}
+
+#expenses-view .table th:nth-child(5),
+#expenses-view .table td:nth-child(5) {
+  width: 15% !important; /* Actions */
+  text-align: center !important;
+}
+
+/* Custom buttons for Expenses View (Desktop & General) */
+#expenses-view .edit-exp-btn {
+  background: transparent !important;
+  border: 1.5px solid var(--info) !important;
+  color: var(--info) !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  padding: 5px 12px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+#expenses-view .edit-exp-btn:hover {
+  background: var(--info) !important;
+  color: white !important;
+}
+
+#expenses-view .delete-exp-btn {
+  background: var(--danger) !important;
+  border: 1.5px solid var(--danger) !important;
+  color: white !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  padding: 5px 12px !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+#expenses-view .delete-exp-btn:hover {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+}
+
 @media (max-width: 768px) {
   .expenses-layout {
-    grid-template-columns: 1fr;
-    gap: 20px;
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Page container layout (Requirement Mobile stability) */
+  #expenses-view {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    padding-bottom: 100px !important; /* Space for mobile bottom nav bar */
+  }
+
+  /* Remove internal scroll from Expense History (Requirement Mobile stability) */
+  #expenses-view .table-container {
+    max-height: none !important;
+    overflow-y: visible !important;
+    height: auto !important;
+  }
+
+  .expenses-history-card,
+  .expenses-form-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Keep filters in one row if possible, stack if screen too small (Requirement Filters) */
+  .expense-filters-container {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .expense-filters-container select {
+    flex: 1 1 calc(50% - 4px) !important;
+    min-width: 120px !important;
+  }
+
+  /* Mobile Responsive Expense Cards (Requirement Mobile stability) */
+  #expenses-view thead {
+    display: none !important;
+  }
+
+  #expenses-view tbody,
+  #expenses-view tr,
+  #expenses-view td {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  #expenses-view tbody tr {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 12px !important; /* Requirement 5: padding: 12px */
+    margin-bottom: 12px !important;
+    box-sizing: border-box !important; /* Requirement 5: box-sizing: border-box */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    position: relative !important;
+    overflow: visible !important; /* Requirement 5: overflow: visible */
+    
+    /* 3-Row Mini Table Grid layout (Requirement 2, 3) */
+    display: grid !important;
+    grid-template-columns: 24% 24% 20% 32% !important; /* Date | Category | Amount | Note (Requirement 4) */
+    grid-template-rows: auto auto auto !important;
+    gap: 6px 10px !important; /* spacing between headers and values */
+    width: 100% !important;
+  }
+
+  /* Each cell is styled as a column block: label on Row 1, value on Row 2 */
+  #expenses-view tbody td {
+    padding: 0 !important;
+    border: none !important;
+    display: flex !important;
+    flex-direction: column !important; /* Stack label over value vertically! */
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    gap: 4px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Row 1: Header labels inside each cell */
+  #expenses-view tbody td::before {
+    display: block !important;
+    font-size: 0.75rem !important; /* Tiny, clean label */
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: var(--text-muted) !important;
+    font-weight: 700 !important;
+    margin-bottom: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  #expenses-view tbody td:nth-child(1)::before { content: "Date" !important; }
+  #expenses-view tbody td:nth-child(2)::before { content: "Category" !important; }
+  #expenses-view tbody td:nth-child(3)::before { content: "Amount" !important; }
+  #expenses-view tbody td:nth-child(4)::before { content: "Note" !important; }
+
+  /* Row 2: Value wrapper styling */
+  #expenses-view tbody td .exp-val {
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+    color: var(--dark) !important;
+    display: block !important;
+    width: 100% !important;
+    text-align: left !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #expenses-view tbody td:nth-child(1) .exp-val {
+    white-space: nowrap !important; /* No multi-line date */
+  }
+
+  #expenses-view tbody td:nth-child(2) .exp-val {
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+  }
+
+  #expenses-view tbody td:nth-child(3) .exp-val {
+    font-weight: 800 !important;
+    color: #ef4444 !important; /* Outflow bold red (Requirement 6) */
+    white-space: nowrap !important;
+  }
+
+  /* Note wraps normally or shows ellipsis if very long (Requirement 5, 6) */
+  #expenses-view tbody td:nth-child(4) .exp-val {
+    color: var(--text-muted) !important;
+    white-space: nowrap !important; /* Truncate Note horizontally with ellipsis to fit card nicely */
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Row 3: Action Buttons Container (Bottom row span 4 columns) */
+  #expenses-view tbody td:nth-child(5) {
+    grid-column: span 4 !important;
+    margin-top: 12px !important; /* Requirement 3: margin-top: 12px */
+    border-top: 1px solid #f1f5f9 !important;
+    padding-top: 8px !important;
+    display: block !important;
+    width: 100% !important;
+    position: static !important; /* Requirement 4: Remove any absolute positioning */
+  }
+
+  #expenses-view tbody td:nth-child(5)::before {
+    content: none !important;
+  }
+
+  #expenses-view tbody td:nth-child(5) div {
+    display: flex !important; /* Requirement 3: display: flex */
+    flex-direction: row !important;
+    gap: 8px !important; /* Requirement 3: gap: 8px */
+    justify-content: flex-start !important; /* Requirement 3: justify-content: flex-start */
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    position: static !important; /* Requirement 4: Remove absolute positioning */
+    margin: 0 !important; /* Requirement 4: Remove negative margins */
+  }
+
+  /* Style mobile buttons explicitly */
+  #expenses-view tbody td:nth-child(5) .edit-exp-btn {
+    background: transparent !important;
+    border: 1px solid var(--info) !important;
+    color: var(--info) !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    padding: 4px 12px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    text-transform: none !important;
+    box-shadow: none !important;
+    min-height: auto !important;
+  }
+  
+  #expenses-view tbody td:nth-child(5) .edit-exp-btn:hover {
+    background: var(--info) !important;
+    color: white !important;
+  }
+
+  #expenses-view tbody td:nth-child(5) .delete-exp-btn {
+    background: var(--danger) !important;
+    border: 1px solid var(--danger) !important;
+    color: white !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    padding: 4px 12px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    text-transform: none !important;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2) !important;
+    min-height: auto !important;
+  }
+
+  #expenses-view tbody td:nth-child(5) .delete-exp-btn:hover {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+  }
+}
+@media (max-width: 400px) {
+  .expense-filters-container select {
+    flex: 1 1 100% !important; /* Stack full width on very small screens */
   }
 }
 
@@ -2885,4 +3173,138 @@ body.modal-open {
 .stat-card-glow-green:hover {
   transform: translateY(-4px);
   box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.25), 0 10px 10px -5px rgba(16, 185, 129, 0.15) !important;
+}
+
+/* ==========================================================================
+   Customer CRM Mobile Responsive Cards
+   ========================================================================== */
+@media (max-width: 768px) {
+  #customers-view thead {
+    display: none !important;
+  }
+
+  #customers-view tbody,
+  #customers-view tr,
+  #customers-view td {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  #customers-view tbody tr {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    margin-bottom: 14px !important; /* Spacing between cards */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    position: relative !important;
+  }
+
+  /* Customer Name row (Requirement 3: Name on single line with ellipsis) */
+  #customers-view tbody td:nth-child(1) {
+    font-size: 1.1rem !important;
+    font-weight: 800 !important;
+    color: var(--dark) !important;
+    margin-bottom: 4px !important;
+    border: none !important;
+    padding: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Customer Phone number */
+  #customers-view tbody td:nth-child(2) {
+    font-size: 0.9rem !important;
+    color: var(--text-muted) !important;
+    margin-bottom: 12px !important;
+    border: none !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+  }
+  #customers-view tbody td:nth-child(2)::before {
+    content: "📞 " !important;
+  }
+
+  /* Bills & Purchase (Row 2, side by side taking 50% width each) */
+  #customers-view tbody td:nth-child(3),
+  #customers-view tbody td:nth-child(4) {
+    display: inline-flex !important;
+    width: 50% !important;
+    font-size: 0.85rem !important;
+    margin-bottom: 12px !important;
+    padding: 0 !important;
+    border: none !important;
+    box-sizing: border-box !important;
+  }
+
+  #customers-view tbody td:nth-child(3)::before {
+    content: "Bills: " !important;
+    font-weight: bold !important;
+    color: var(--text-muted) !important;
+    margin-right: 4px !important;
+  }
+
+  #customers-view tbody td:nth-child(4)::before {
+    content: "Purchase: " !important;
+    font-weight: bold !important;
+    color: var(--text-muted) !important;
+    margin-right: 4px !important;
+  }
+
+  #customers-view tbody td:nth-child(4) {
+    font-weight: bold !important;
+    color: var(--primary) !important;
+  }
+
+  /* Last Visit (Row 3, stacked label and value) */
+  #customers-view tbody td:nth-child(5) {
+    font-size: 0.85rem !important;
+    margin-bottom: 12px !important;
+    padding: 0 !important;
+    border: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 2px !important;
+  }
+  #customers-view tbody td:nth-child(5)::before {
+    content: "Last Visit:" !important;
+    font-weight: bold !important;
+    color: var(--text-muted) !important;
+  }
+
+  /* Actions - View History Button (Row 4) */
+  #customers-view tbody td:nth-child(6) {
+    margin-top: 4px !important;
+    border-top: 1px dashed var(--border) !important;
+    padding-top: 12px !important;
+    display: block !important;
+    margin-bottom: 0 !important;
+  }
+
+  #customers-view tbody td:nth-child(6) button {
+    width: auto !important;
+    background: transparent !important;
+    border: 1.5px solid var(--info) !important;
+    color: var(--info) !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    padding: 6px 16px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    min-height: auto !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: none !important;
+    transition: all 0.2s ease !important;
+  }
+  #customers-view tbody td:nth-child(6) button:hover {
+    background: var(--info) !important;
+    color: white !important;
+  }
 }

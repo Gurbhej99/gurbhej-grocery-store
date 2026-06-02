@@ -154,7 +154,10 @@ const TRANSLATIONS = {
     fuel: "Fuel",
     internet: "Internet",
     maintenance: "Maintenance",
-    other: "Other"
+    other: "Other",
+    thisMonth: "This Month",
+    selectCategory: "Select Category",
+    totalExpenses: "Total Expenses"
   },
   hi: {
     // Navigation / General
@@ -308,7 +311,10 @@ const TRANSLATIONS = {
     fuel: "ईंधन (Fuel)",
     internet: "इंटरनेट (Internet)",
     maintenance: "रखरखाव (Maintenance)",
-    other: "अन्य (Other)"
+    other: "अन्य (Other)",
+    thisMonth: "इस महीने",
+    selectCategory: "श्रेणी चुनें...",
+    totalExpenses: "कुल खर्च"
   },
   pa: {
     // Navigation / General
@@ -462,7 +468,10 @@ const TRANSLATIONS = {
     fuel: "ਤੇਲ / ਬਾਲਣ (Fuel)",
     internet: "ਇੰਟਰਨੈੱਟ (Internet)",
     maintenance: "ਰੱਖ-ਰਖਾਅ (Maintenance)",
-    other: "ਹੋਰ (Other)"
+    other: "ਹੋਰ (Other)",
+    thisMonth: "ਇਸ ਮਹੀਨੇ",
+    selectCategory: "ਸ਼੍ਰੇਣੀ ਚੁਣੋ...",
+    totalExpenses: "ਕੁੱਲ ਖ਼ਰਚੇ"
   }
 };
 
