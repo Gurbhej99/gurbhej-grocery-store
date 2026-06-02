@@ -80,7 +80,7 @@ body {
 /* Application Layout Structure */
 #app-container {
   display: flex;
-  min-height: 100vh;
+  min-height: 0vh;
 }
 
 /* Sidebar Navigation */
