@@ -914,15 +914,15 @@
             <form id="settings-upi-form">
               <div class="form-group">
                 <label>UPI Name</label>
-                <input type="text" id="settings-upi-name" class="form-control" placeholder="Gurbhej Singh" required>
+                <input type="text" id="settings-upi-name" class="form-control" placeholder="e.g. Account Holder Name" required>
               </div>
               <div class="form-group">
                 <label>UPI Phone Number</label>
-                <input type="text" id="settings-upi-phone" class="form-control" placeholder="7973679747" required>
+                <input type="text" id="settings-upi-phone" class="form-control" placeholder="e.g. 9876543210" required>
               </div>
               <div class="form-group">
                 <label>UPI ID</label>
-                <input type="text" id="settings-upi-id" class="form-control" placeholder="paytm.s1sd9a3@pty" required>
+                <input type="text" id="settings-upi-id" class="form-control" placeholder="e.g. yourname@upi" required>
               </div>
               <div class="form-group">
                 <label>Upload UPI QR Image</label>
@@ -960,7 +960,7 @@
         <!-- Authentic Thermal Receipt Wrapper -->
         <div id="thermal-receipt-paper" class="invoice-paper-wrapper">
           <div class="invoice-shop-header">
-            <h2 id="invoice-shop-name">Gurbhej Grocery Store</h2>
+            <h2 id="invoice-shop-name">Your Store Name</h2>
             <p id="invoice-shop-tagline"></p>
             <p id="invoice-shop-address"></p>
             <p id="invoice-shop-phone"></p>
@@ -1024,9 +1024,9 @@
             <div class="upi-compact-row" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
               <!-- Left side: text details -->
               <div class="upi-compact-left" style="font-size: 10px; line-height: 1.4; font-family: monospace;">
-                <div>Name: <span id="invoice-upi-name-val">Gurbhej Singh</span></div>
-                <div>Phone: <span id="invoice-upi-phone-val">7973679747</span></div>
-                <div>UPI ID: <span id="invoice-upi-id-val">paytm.s1sd9a3@pty</span></div>
+                <div>Name: <span id="invoice-upi-name-val">Account Holder Name</span></div>
+                <div>Phone: <span id="invoice-upi-phone-val">9876543210</span></div>
+                <div>UPI ID: <span id="invoice-upi-id-val">yourname@upi</span></div>
                 <div style="font-weight: bold; margin-top: 4px; font-size: 11px;">Amount Due: Rs.<span id="invoice-upi-amount-val">0.00</span></div>
               </div>
               <!-- Right side: small QR code + Scan to Pay caption -->
@@ -1218,7 +1218,7 @@
         <div class="modal-body">
           <div class="form-group">
             <label data-i18n="customerName">Customer Name</label>
-            <input type="text" id="customer-name" class="form-control" required placeholder="e.g. Gurbhej Singh">
+            <input type="text" id="customer-name" class="form-control" required placeholder="e.g. Amit Kumar">
           </div>
           <div class="form-group">
             <label data-i18n="customerPhone">Phone Number (Optional)</label>
@@ -1267,6 +1267,65 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary btn-close-modal" data-i18n="cancel">Cancel</button>
           <button type="submit" class="btn btn-primary" data-i18n="save">Submit Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  
+  <!-- Modal 5: SET PRODUCT RATE -->
+  <div id="modal-set-rate" class="modal-overlay">
+    <div class="modal-container" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 id="set-rate-title" style="margin: 0; font-weight: 800; font-size: 1.2rem; color: var(--dark);">Set Product Rate</h3>
+        <button class="btn-close-modal" id="btn-close-set-rate-modal">✕</button>
+      </div>
+      <form id="set-rate-form">
+        <input type="hidden" id="set-rate-product-id">
+        <div class="modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+          
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Product Name</label>
+            <input type="text" id="set-rate-product-name" class="form-control" readonly style="font-weight: 700; background-color: var(--bg); border-color: var(--border);">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Selling Unit</label>
+              <select id="set-rate-product-unit" class="form-control" required>
+                <option value="kg">kg</option>
+                <option value="gram">gram</option>
+                <option value="litre">litre</option>
+                <option value="ml">ml</option>
+                <option value="piece">piece</option>
+                <option value="packet">packet</option>
+                <option value="box">box</option>
+              </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Rate Type</label>
+              <select id="set-rate-type" class="form-control" required>
+                <option value="kg">per kg</option>
+                <option value="gram">per gram</option>
+                <option value="litre">per litre</option>
+                <option value="ml">per ml</option>
+                <option value="piece">per piece</option>
+                <option value="packet">per packet</option>
+                <option value="box">per box</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 4px;">Selling Rate (₹) *</label>
+            <input type="number" id="set-rate-price" class="form-control" required min="0.01" step="0.01" placeholder="e.g. 140" style="font-weight: 700; font-size: 1.1rem; color: var(--primary);">
+          </div>
+        </div>
+          
+        <div class="modal-footer" style="padding: 16px 20px; display: flex; gap: 10px; justify-content: flex-end; background-color: var(--bg); border-top: 1px solid var(--border);">
+          <button type="button" id="btn-cancel-set-rate" class="btn btn-secondary btn-close-modal" style="height: 40px;">Cancel</button>
+          <button type="submit" name="action" value="save" class="btn btn-secondary" style="height: 40px; font-weight: 700; border-color: var(--primary); color: var(--primary);">Save Rate Only</button>
+          <button type="submit" name="action" value="save_add" class="btn btn-primary" style="height: 40px; font-weight: 700;">Save & Add to Cart</button>
         </div>
       </form>
     </div>
@@ -1375,8 +1434,8 @@
   </div>
 
   <!-- Full-Screen Shop Profile Setup Overlay -->
-  <div id="profile-setup-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-light); z-index: 99999; overflow-y: auto; padding: 24px 16px; font-family: 'Outfit', sans-serif;">
-    <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">
+  <div id="profile-setup-overlay" style="display: none;">
+    <div style="max-width: 600px; width: 100%; margin: 0; background: white; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">
       
       <div style="text-align: center; margin-bottom: 24px;">
         <h2 style="color: var(--primary); font-weight: 800; font-size: 1.8rem; margin-bottom: 8px;">Gurbhej Billing System</h2>
@@ -1393,11 +1452,11 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div class="form-group" style="margin-bottom: 0;">
               <label style="font-weight: 600; font-size: 0.85rem;">Store Name *</label>
-              <input type="text" id="setup-shop-name" class="form-control" placeholder="e.g. Gurbhej Grocery Store" required>
+              <input type="text" id="setup-shop-name" class="form-control" placeholder="e.g. Your Store Name" required>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
               <label style="font-weight: 600; font-size: 0.85rem;">Owner Name *</label>
-              <input type="text" id="setup-owner-name" class="form-control" placeholder="e.g. Gurbhej Singh" required>
+              <input type="text" id="setup-owner-name" class="form-control" placeholder="e.g. Owner Name" required>
             </div>
           </div>
           
@@ -1408,7 +1467,7 @@
           
           <div class="form-group" style="margin-bottom: 12px;">
             <label style="font-weight: 600; font-size: 0.85rem;">Shop Address *</label>
-            <textarea id="setup-shop-address" class="form-control" rows="2" placeholder="e.g. Main Bazaar, Gurdaspur, Punjab" required></textarea>
+            <textarea id="setup-shop-address" class="form-control" rows="2" placeholder="e.g. Your shop address" required></textarea>
           </div>
           
           <div class="form-group" style="margin-bottom: 0;">
@@ -1424,17 +1483,17 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div class="form-group" style="margin-bottom: 0;">
               <label style="font-weight: 600; font-size: 0.85rem;">UPI Name (Optional)</label>
-              <input type="text" id="setup-upi-name" class="form-control" placeholder="e.g. Gurbhej Singh">
+              <input type="text" id="setup-upi-name" class="form-control" placeholder="e.g. Account Holder Name">
             </div>
             <div class="form-group" style="margin-bottom: 0;">
               <label style="font-weight: 600; font-size: 0.85rem;">UPI Phone (Optional)</label>
-              <input type="text" id="setup-upi-phone" class="form-control" placeholder="e.g. 7973679747">
+              <input type="text" id="setup-upi-phone" class="form-control" placeholder="e.g. UPI Mobile Number">
             </div>
           </div>
           
           <div class="form-group" style="margin-bottom: 12px;">
             <label style="font-weight: 600; font-size: 0.85rem;">UPI ID (Optional)</label>
-            <input type="text" id="setup-upi-id" class="form-control" placeholder="e.g. paytm.s1sd9a3@pty">
+            <input type="text" id="setup-upi-id" class="form-control" placeholder="e.g. yourname@upi">
           </div>
           
           <div class="form-group" style="margin-bottom: 0;">
@@ -1458,8 +1517,9 @@
         
       </form>
     </div>
+  </div>
   <!-- Hidden Dedicated Print Template for 80mm PDF Generation -->
-  <div id="pdf-print-template">
+  <div id="pdf-print-template" style="display: none; position: fixed; left: -9999px; top: -9999px; visibility: hidden;">
     <!-- Header -->
     <div style="margin-bottom: 8px;">
       <h2 id="pdf-shop-name">Shop Name</h2>
@@ -1531,7 +1591,7 @@
         <!-- Right Side -->
         <div style="text-align: center; width: 75px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;">
           <div id="pdf-upi-qr-container">
-            <img id="pdf-upi-qr" alt="UPI QR">
+            <img id="pdf-upi-qr" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="UPI QR">
             <span id="pdf-upi-no-qr" style="font-size: 7px; color: #999; text-align: center; line-height: 1.1; padding: 4px; display: none;">No QR<br>Code</span>
           </div>
           <span style="font-size: 8px; font-weight: bold; color: #555;">Scan to Pay</span>

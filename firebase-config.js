@@ -39,13 +39,13 @@ export async function loadFirebaseSDKs() {
  */
 export async function initializeFirebase(customConfig = null) {
   try {
-    await loadFirebaseSDKs();
-
     const config = customConfig || JSON.parse(localStorage.getItem("gurbhej_firebase_config"));
     if (!config || !config.apiKey || !config.projectId) {
       console.log("Firebase is not configured. Running in standalone local mode.");
       return null;
     }
+
+    await loadFirebaseSDKs();
 
     // Return current instance if already initialized
     if (firebaseApp) {

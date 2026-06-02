@@ -140,10 +140,10 @@ function getShopProfile() {
   const shopTagline = settings.shopTagline && settings.shopTagline.trim() ? settings.shopTagline.trim() : "";
   
   const addressVal = settings.shopAddress ? settings.shopAddress.trim() : "";
-  const shopAddress = (addressVal && addressVal !== "Main Bazaar, Gurdaspur, Punjab, India" && addressVal !== "Main Bazaar, Gurdaspur, Punjab") ? addressVal : "Update shop profile in Settings";
+  const shopAddress = addressVal ? addressVal : "Update shop profile in Settings";
   
   const phoneVal = settings.shopPhone ? settings.shopPhone.trim() : "";
-  const shopPhone = (phoneVal && phoneVal !== "9876543210") ? phoneVal : "Update shop profile in Settings";
+  const shopPhone = phoneVal ? phoneVal : "Update shop profile in Settings";
   
   return {
     shopName,
@@ -203,6 +203,7 @@ const state = {
 // INITIALIZATION AND ROUTING
 // ==========================================
 document.addEventListener("DOMContentLoaded", async () => {
+  console.log("APP START");
   // Show success toast notifications after PWA redirects/reloads
   if (sessionStorage.getItem("pwa_restore_success") === "true") {
     sessionStorage.removeItem("pwa_restore_success");
@@ -222,12 +223,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Initialize Database Engine
   showToast("Initializing database...", "info");
+  console.log("INIT CALLED");
   await DB.init(async () => {
     // Database sync callback (fired when Firebase cloud sync triggers an update)
     updateCloudStatusIndicator();
     populateCategoryDropdowns();
     const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
-    const shop = DB.getSettings();
+    const shop = DB.getSettings() || {};
     if (isSetupComplete || shop.profileCompleted) {
       renderActivePage();
     }
@@ -380,7 +382,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Draw initial page
   const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
-  const shop = DB.getSettings();
+  const shop = DB.getSettings() || {};
+  console.log("RENDER CALLED");
   if (isSetupComplete || shop.profileCompleted) {
     renderActivePage();
   }
@@ -1038,6 +1041,63 @@ function setupBillingEventListeners() {
       shareInvoicePDF();
     });
   }
+
+  // Set Product Rate Modal Event Listeners
+  const setRateUnit = document.getElementById("set-rate-product-unit");
+  if (setRateUnit) {
+    setRateUnit.addEventListener("change", (e) => {
+      const rateType = document.getElementById("set-rate-type");
+      if (rateType) rateType.value = e.target.value;
+    });
+  }
+
+  const setRateForm = document.getElementById("set-rate-form");
+  if (setRateForm) {
+    setRateForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const productId = document.getElementById("set-rate-product-id").value;
+      const rateVal = parseFloat(document.getElementById("set-rate-price").value);
+      const unitVal = document.getElementById("set-rate-product-unit").value;
+
+      if (isNaN(rateVal) || rateVal <= 0) {
+        showToast("Please enter a valid selling rate!", "error");
+        return;
+      }
+
+      const products = DB.getProducts();
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        product.rate = rateVal;
+        product.unit = unitVal;
+        await DB.saveProduct(product);
+
+        // Update product list / quick pick items immediately in app state by re-rendering
+        if (state.activePage === "products") {
+          renderProducts();
+        }
+
+        // Instant re-render of billing Quick Picks card rate
+        renderQuickPicks();
+
+        // Also if search suggestions are open, re-render them dynamically by triggering search filtering input event!
+        const searchInput = document.getElementById("billing-product-search");
+        if (searchInput && searchInput.value.trim().length >= 1) {
+          searchInput.dispatchEvent(new Event("input"));
+        }
+
+        const action = e.submitter ? e.submitter.value : "save_add";
+        closeAllModals();
+
+        if (action === "save") {
+          showToast("Rate saved successfully.", "success");
+        } else {
+          addProductToCart(product);
+        }
+      } else {
+        showToast("Product not found in inventory.", "error");
+      }
+    });
+  }
 }
 
 function renderBilling() {
@@ -1146,23 +1206,41 @@ function renderSearchSuggestions(matches) {
   suggestionsBox.classList.add("active");
 }
 
+function formatQtyDisplay(qty, unit) {
+  const q = parseFloat(qty);
+  if (isNaN(q)) return "0";
+  if (unit === "kg") {
+    if (q < 1) {
+      return `${Math.round(q * 1000)}g`;
+    }
+    return `${q} kg`;
+  }
+  if (unit === "litre") {
+    if (q < 1) {
+      return `${Math.round(q * 1000)}ml`;
+    }
+    return `${q} L`;
+  }
+  return `${qty} ${unit}`;
+}
+
 function addProductToCart(product) {
   // If product rate is 0, billing should ask "Set Rate" before adding to cart
   if (parseFloat(product.rate || 0) === 0) {
-    const rateStr = prompt(`Set Rate (₹) for ${product.name}:`, "");
-    if (rateStr === null) return; // user cancelled
-    const rateVal = parseFloat(rateStr);
-    if (isNaN(rateVal) || rateVal < 0) {
-      alert("Please enter a valid rate!");
-      return;
-    }
-    product.rate = rateVal;
-    DB.saveProduct(product); // Persist the rate
+    const rateProductId = document.getElementById("set-rate-product-id");
+    const rateProductName = document.getElementById("set-rate-product-name");
+    const rateProductUnit = document.getElementById("set-rate-product-unit");
+    const rateType = document.getElementById("set-rate-type");
+    const ratePrice = document.getElementById("set-rate-price");
     
-    // Refresh products view if currently on products page
-    if (state.activePage === "products") {
-      renderProducts();
-    }
+    if (rateProductId) rateProductId.value = product.id;
+    if (rateProductName) rateProductName.value = product.name;
+    if (rateProductUnit) rateProductUnit.value = product.unit || "kg";
+    if (rateType) rateType.value = product.unit || "kg";
+    if (ratePrice) ratePrice.value = "";
+    
+    openModal("modal-set-rate");
+    return; // Exit and wait for modal save
   }
 
   // Check if already in cart
@@ -1184,7 +1262,6 @@ function addProductToCart(product) {
   renderCart();
   showToast(`${product.name.split(" (")[0]} added!`, "success");
 }
-
 function renderCart() {
   const tbody = document.getElementById("cart-items-body");
   const countEl = document.getElementById("cart-item-count");
@@ -1205,16 +1282,53 @@ function renderCart() {
   countEl.textContent = `${state.cart.length} Items`;
 
   state.cart.forEach((item, idx) => {
+    let quickButtonsHTML = "";
+    if (item.unit === "kg") {
+      quickButtonsHTML = `
+        <button class="quick-qty-btn" data-add="0.25">+250g</button>
+        <button class="quick-qty-btn" data-add="0.5">+500g</button>
+        <button class="quick-qty-btn" data-add="1">+1kg</button>
+      `;
+    } else if (item.unit === "litre") {
+      quickButtonsHTML = `
+        <button class="quick-qty-btn" data-add="0.25">+250ml</button>
+        <button class="quick-qty-btn" data-add="0.5">+500ml</button>
+        <button class="quick-qty-btn" data-add="1">+1L</button>
+      `;
+    } else if (item.unit === "piece" || item.unit === "packet" || item.unit === "box") {
+      quickButtonsHTML = `
+        <button class="quick-qty-btn" data-add="1">+1</button>
+        <button class="quick-qty-btn" data-add="2">+2</button>
+        <button class="quick-qty-btn" data-add="5">+5</button>
+      `;
+    } else if (item.unit === "gram" || item.unit === "ml") {
+      const displaySuffix = item.unit === "gram" ? "g" : "ml";
+      quickButtonsHTML = `
+        <button class="quick-qty-btn" data-add="100">+100${displaySuffix}</button>
+        <button class="quick-qty-btn" data-add="250">+250${displaySuffix}</button>
+        <button class="quick-qty-btn" data-add="500">+500${displaySuffix}</button>
+      `;
+    } else {
+      quickButtonsHTML = `
+        <button class="quick-qty-btn" data-add="1">+1</button>
+        <button class="quick-qty-btn" data-add="2">+2</button>
+        <button class="quick-qty-btn" data-add="5">+5</button>
+      `;
+    }
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td style="font-weight: 600; color: var(--dark);">${item.name.split(" (")[0]} <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(${item.unit})</span></td>
-      <td style="font-weight: 500;">₹${item.rate}</td>
+      <td style="font-weight: 600; color: var(--dark);">
+        <div>${item.name.split(" (")[0]} <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(${item.unit})</span></div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-top: 2px;">
+          Rate: ₹${item.rate}/${item.unit} | Qty: <span class="cart-item-qty-display" style="font-weight:600; color:var(--primary);">${formatQtyDisplay(item.qty, item.unit)}</span>
+        </div>
+      </td>
+      <td style="font-weight: 500;">₹${item.rate}/${item.unit}</td>
       <td>
         <input type="number" class="form-control cart-input cart-qty-input" value="${item.qty}" min="0.001" step="any">
         <div class="quick-qty-box">
-          <button class="quick-qty-btn" data-add="0.25">+250g</button>
-          <button class="quick-qty-btn" data-add="0.5">+500g</button>
-          <button class="quick-qty-btn" data-add="1">+1</button>
+          ${quickButtonsHTML}
         </div>
       </td>
       <td>
@@ -1232,8 +1346,8 @@ function renderCart() {
     // Connect Fast Bidirectional inputs
     const qtyInput = tr.querySelector(".cart-qty-input");
     const amountInput = tr.querySelector(".cart-amount-input");
+    const qtyDisplay = tr.querySelector(".cart-item-qty-display");
 
-    // Bidirectional Qty to Amount calculation
     qtyInput.addEventListener("input", () => {
       let qty = parseFloat(qtyInput.value);
       if (isNaN(qty) || qty <= 0) qty = 0;
@@ -1242,10 +1356,10 @@ function renderCart() {
       item.amount = parseFloat((qty * item.rate).toFixed(2));
       amountInput.value = item.amount.toFixed(2);
       
+      if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(qty, item.unit);
       recalculateCartTotals();
     });
 
-    // Bidirectional Amount to Qty calculation (Auto-calculates quantity on Rupee budget!)
     amountInput.addEventListener("input", () => {
       let amount = parseFloat(amountInput.value);
       if (isNaN(amount) || amount <= 0) amount = 0;
@@ -1254,6 +1368,7 @@ function renderCart() {
       item.qty = parseFloat((amount / item.rate).toFixed(2));
       qtyInput.value = item.qty;
 
+      if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(item.qty, item.unit);
       recalculateCartTotals();
     });
 
@@ -1263,8 +1378,7 @@ function renderCart() {
         const val = parseFloat(qBtn.dataset.add);
         let currentQty = parseFloat(qtyInput.value) || 0;
         
-        // If unit is piece/gram, adjust scaling
-        if (item.unit === "piece") {
+        if (item.unit === "piece" || item.unit === "packet" || item.unit === "box") {
           currentQty = Math.round(currentQty + (val >= 1 ? val : 1));
         } else {
           currentQty = parseFloat((currentQty + val).toFixed(3));
@@ -1275,6 +1389,7 @@ function renderCart() {
         item.amount = parseFloat((currentQty * item.rate).toFixed(2));
         amountInput.value = item.amount.toFixed(2);
         
+        if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(currentQty, item.unit);
         recalculateCartTotals();
       });
     });
@@ -1481,8 +1596,8 @@ function openInvoiceModal(invoice) {
       <td>
         <div style="font-weight: bold; font-family: 'Outfit', sans-serif; font-size:12px;">${displayName}</div>
       </td>
-      <td class="num-cell" style="vertical-align: top;">₹${item.rate}</td>
-      <td class="num-cell" style="vertical-align: top;">${item.qty} ${item.unit}</td>
+      <td class="num-cell" style="vertical-align: top;">₹${item.rate}/${item.unit}</td>
+      <td class="num-cell" style="vertical-align: top;">${formatQtyDisplay(item.qty, item.unit)}</td>
       <td class="num-cell" style="vertical-align: top;">₹${item.amount.toFixed(2)}</td>
     `;
     tbody.appendChild(tr);
@@ -1501,9 +1616,9 @@ function openInvoiceModal(invoice) {
     modeVal.style.color = "var(--danger)";
 
     // Populate UPI dynamic block
-    const upiName = shop.upiName || "Gurbhej Singh";
-    const upiPhone = shop.upiPhone || "7973679747";
-    const upiId = shop.upiId || "paytm.s1sd9a3@pty";
+    const upiName = shop.upiName || "Account Holder Name";
+    const upiPhone = shop.upiPhone || "9876543210";
+    const upiId = shop.upiId || "yourname@upi";
     
     document.getElementById("invoice-upi-name-val").textContent = upiName;
     document.getElementById("invoice-upi-phone-val").textContent = upiPhone;
@@ -1581,158 +1696,259 @@ function getEnglishName(name) {
   return clean.trim();
 }
 
-async function generatePDFDocument() {
-  const invoice = state.currentInvoice;
-  if (!invoice) return null;
-
-  const { jsPDF } = window.jspdf;
-  if (!jsPDF) return null;
-  if (!window.html2canvas) {
-    console.error("html2canvas is not loaded.");
+async function generatePDFDocument(invoiceData = state.currentInvoice) {
+  const invoice = invoiceData;
+  if (!invoice) {
+    showToast("No items in cart", "error");
     return null;
   }
 
-  // 1. Populate the dedicated print template
-  const shop = getShopProfile();
-  const settings = DB.getSettings();
-
-  document.getElementById("pdf-shop-name").textContent = shop.shopName;
-  document.getElementById("pdf-shop-tagline").textContent = shop.shopTagline || "";
-  document.getElementById("pdf-shop-address").textContent = shop.shopAddress || "";
-  document.getElementById("pdf-shop-phone").textContent = shop.shopPhone ? `Phone: ${shop.shopPhone}` : "";
-
-  document.getElementById("pdf-invoice-no").textContent = invoice.invoiceNo;
-  document.getElementById("pdf-date-time").textContent = `${invoice.date} ${invoice.time}`;
-  document.getElementById("pdf-customer-name").textContent = invoice.customerName;
-
-  const phoneRow = document.getElementById("pdf-customer-phone-row");
-  if (invoice.customerPhone) {
-    document.getElementById("pdf-customer-phone").textContent = invoice.customerPhone;
-    phoneRow.style.display = "block";
-  } else {
-    phoneRow.style.display = "none";
+  // Resolve jsPDF class safely supporting all common loader variations
+  let jsPDFClass = null;
+  if (window.jspdf && window.jspdf.jsPDF) {
+    jsPDFClass = window.jspdf.jsPDF;
+  } else if (window.jsPDF) {
+    jsPDFClass = window.jsPDF;
   }
 
-  // Populate products table
-  const tbody = document.getElementById("pdf-items-body");
-  tbody.innerHTML = "";
-  invoice.items.forEach(item => {
-    const tr = document.createElement("tr");
-    tr.style.borderBottom = "1px solid #f5f5f5";
-    
-    const pName = formatProductName(item);
-    const rateVal = parseFloat(item.rate);
-    const qtyVal = parseFloat(item.qty);
-    const amountVal = parseFloat(item.amount);
-
-    tr.innerHTML = `
-      <td class="col-item">${pName}</td>
-      <td class="col-rate">Rs.${rateVal % 1 === 0 ? rateVal.toFixed(0) : rateVal.toFixed(2)}</td>
-      <td class="col-qty">${qtyVal}</td>
-      <td class="col-amount" style="font-weight: bold;">Rs.${amountVal % 1 === 0 ? amountVal.toFixed(0) : amountVal.toFixed(2)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  // Totals
-  const subtotalVal = parseFloat(invoice.subtotal);
-  document.getElementById("pdf-subtotal").textContent = `Rs.${subtotalVal % 1 === 0 ? subtotalVal.toFixed(0) : subtotalVal.toFixed(2)}`;
-  
-  const discountVal = parseFloat(invoice.discount);
-  document.getElementById("pdf-discount").textContent = `Rs.${discountVal % 1 === 0 ? discountVal.toFixed(0) : discountVal.toFixed(2)}`;
-  
-  const totalVal = parseFloat(invoice.total);
-  document.getElementById("pdf-total").textContent = `Rs.${totalVal % 1 === 0 ? totalVal.toFixed(0) : totalVal.toFixed(2)}`;
-  document.getElementById("pdf-payment-mode").textContent = invoice.paymentMode.toUpperCase();
-
-  // Udhaar QR Section
-  const upiSection = document.getElementById("pdf-upi-section");
-  const isUdhaar = invoice.paymentMode === "udhaar";
-  if (isUdhaar) {
-    document.getElementById("pdf-upi-name").textContent = settings.upiName || "Gurbhej Singh";
-    document.getElementById("pdf-upi-phone").textContent = settings.upiPhone || "7973679747";
-    document.getElementById("pdf-upi-id").textContent = settings.upiId || "paytm.s1sd9a3@pty";
-    document.getElementById("pdf-upi-due").textContent = `Rs.${totalVal % 1 === 0 ? totalVal.toFixed(0) : totalVal.toFixed(2)}`;
-
-    const qrImg = document.getElementById("pdf-upi-qr");
-    const noQrSpan = document.getElementById("pdf-upi-no-qr");
-    if (settings.upiQrImage) {
-      if (qrImg) {
-        qrImg.src = settings.upiQrImage;
-        qrImg.style.display = "block";
-      }
-      if (noQrSpan) noQrSpan.style.display = "none";
-    } else {
-      if (qrImg) qrImg.style.display = "none";
-      if (noQrSpan) noQrSpan.style.display = "block";
-    }
-    upiSection.style.display = "block";
-  } else {
-    upiSection.style.display = "none";
+  if (!jsPDFClass) {
+    throw new Error("jsPDF library is not loaded on the window object.");
   }
 
-  // 2. Render print container using html2canvas
-  const element = document.getElementById("pdf-print-template");
-  
+  const cartItems = invoice.items || [];
+
+  if (cartItems.length === 0) {
+    showToast("No items in cart", "error");
+    return null;
+  }
+
   try {
-    const canvas = await html2canvas(element, {
-      scale: 2, // 2x scale for highly sharp, professional high-DPI prints
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: "#ffffff",
-      logging: false
-    });
-
-    const imgData = canvas.toDataURL("image/png");
-    
-    // Receipt width is fixed to exactly 80mm
-    const pdfWidth = 80;
-    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-
-    const doc = new jsPDF({
+    // Generate a high-quality programmatic vector text-only PDF using jsPDF
+    const doc = new jsPDFClass({
       orientation: "portrait",
       unit: "mm",
-      format: [pdfWidth, pdfHeight]
+      format: "a4"
     });
 
-    doc.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
+    const shop = getShopProfile();
+    const invoiceNo = invoice.invoiceNo || "GS-" + Date.now();
+    const date = invoice.date || new Date().toISOString().split("T")[0];
+    const time = invoice.time || new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+    const customerName = invoice.customerName || invoice.customer || "Walk-in Customer";
+    const customerPhone = invoice.customerPhone || "";
+    const subtotal = invoice.subtotal !== undefined ? invoice.subtotal : 0;
+    const discount = invoice.discount !== undefined ? invoice.discount : 0;
+    const total = invoice.total !== undefined ? invoice.total : 0;
+    const paymentMode = invoice.paymentMode || "cash";
 
-    return { doc, filename: `Invoice_${invoice.invoiceNo}.pdf` };
+    let y = 20;
+
+    // Header Shop Info (Aesthetics: Centered bold shop title, regular subtexts)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text(shop.shopName, 105, y, { align: "center" });
+    y += 8;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    if (shop.shopTagline) {
+      doc.text(shop.shopTagline, 105, y, { align: "center" });
+      y += 6;
+    }
+    if (shop.shopAddress) {
+      doc.text(shop.shopAddress, 105, y, { align: "center" });
+      y += 6;
+    }
+    if (shop.shopPhone) {
+      doc.text(`Phone: ${shop.shopPhone}`, 105, y, { align: "center" });
+      y += 8;
+    }
+
+    doc.setLineWidth(0.5);
+    doc.line(15, y, 195, y);
+    y += 8;
+
+    // Invoice Metadata Block
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("INVOICE RECEIPT", 15, y);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    y += 6;
+
+    doc.text(`Invoice No: ${invoiceNo}`, 15, y);
+    doc.text(`Date & Time: ${date} ${time}`, 120, y);
+    y += 6;
+    doc.text(`Customer: ${customerName}`, 15, y);
+    if (customerPhone) {
+      doc.text(`Phone: ${customerPhone}`, 120, y);
+    }
+    y += 8;
+
+    doc.setLineWidth(0.3);
+    doc.line(15, y, 195, y);
+    y += 8;
+
+    // Products Table Headers
+    doc.setFont("helvetica", "bold");
+    doc.text("Item Name", 15, y);
+    doc.text("Rate", 110, y, { align: "right" });
+    doc.text("Qty", 145, y, { align: "right" });
+    doc.text("Amount", 190, y, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    y += 4;
+    doc.line(15, y, 195, y);
+    y += 8;
+
+    // Products Rows
+    cartItems.forEach(item => {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+      const displayName = formatProductName(item);
+      const rateVal = parseFloat(item.rate) || 0;
+      const qtyVal = parseFloat(item.qty) || 0;
+      const amountVal = parseFloat(item.amount) || 0;
+
+      // Draw vector text rows
+      const rateStr = `Rs.${rateVal.toFixed(2)}/${item.unit || "piece"}`;
+      const qtyStr = formatQtyDisplay(qtyVal, item.unit || "piece");
+      const amountStr = `Rs.${amountVal.toFixed(2)}`;
+
+      doc.text(displayName, 15, y);
+      doc.text(rateStr, 110, y, { align: "right" });
+      doc.text(qtyStr, 145, y, { align: "right" });
+      doc.text(amountStr, 190, y, { align: "right" });
+      y += 6;
+    });
+
+    doc.line(15, y, 195, y);
+    y += 8;
+
+    // Totals Block Summary
+    doc.setFont("helvetica", "bold");
+    doc.text("Subtotal:", 145, y, { align: "right" });
+    doc.text(`Rs.${subtotal.toFixed(2)}`, 190, y, { align: "right" });
+    y += 6;
+
+    doc.text("Discount:", 145, y, { align: "right" });
+    doc.text(`Rs.${discount.toFixed(2)}`, 190, y, { align: "right" });
+    y += 6;
+
+    doc.setFontSize(12);
+    doc.text("GRAND TOTAL:", 145, y, { align: "right" });
+    doc.text(`Rs.${total.toFixed(2)}`, 190, y, { align: "right" });
+    y += 6;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Payment Mode:", 145, y, { align: "right" });
+    doc.text(paymentMode.toUpperCase(), 190, y, { align: "right" });
+    y += 15;
+
+    // Footer
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Thank you for shopping with us!", 105, y, { align: "center" });
+
+    return { doc, filename: `Invoice_${invoiceNo}.pdf` };
   } catch (err) {
-    console.error("html2canvas PDF generation failed:", err);
-    return null;
+    console.error("jsPDF direct programmatic PDF generation failed:", err);
+    throw err;
   }
 }
 
 // Download PDF Invoice
 async function downloadInvoicePDF() {
+  const invoice = state.currentInvoice;
+  if (!invoice) {
+    showToast("No active invoice found.", "error");
+    return;
+  }
+  
+  const cartItems = invoice.items || [];
+  if (cartItems.length === 0) {
+    showToast("No items in cart", "error");
+    alert("No items in cart");
+    return;
+  }
+
   showToast("Generating PDF Invoice...", "info");
-  const result = await generatePDFDocument();
-  if (result) {
-    result.doc.save(result.filename);
-    showToast("PDF Invoice downloaded!", "success");
-  } else {
-    showToast("PDF generation failed.", "error");
+  
+  // Pass complete invoice object as requested in requirement 5
+  const completeInvoice = {
+    customer: invoice.customerName || invoice.customer || "Walk-in Customer",
+    items: cartItems,
+    subtotal: invoice.subtotal || 0,
+    discount: invoice.discount || 0,
+    total: invoice.total || 0,
+    paymentMode: invoice.paymentMode || "cash",
+    invoiceNo: invoice.invoiceNo,
+    date: invoice.date,
+    time: invoice.time,
+    customerPhone: invoice.customerPhone || ""
+  };
+
+  try {
+    const result = await generatePDFDocument(completeInvoice);
+    if (result) {
+      result.doc.save(result.filename);
+      showToast("PDF Invoice downloaded!", "success");
+    } else {
+      throw new Error("generatePDFDocument returned null");
+    }
+  } catch (err) {
+    console.error("PDF generation/download failed:", err);
+    showToast(`PDF Download failed. Falling back to browser print...`, "error");
+    window.print();
   }
 }
 
 // Share PDF Invoice
 async function shareInvoicePDF() {
-  showToast("Preparing PDF for Sharing...", "info");
-  const result = await generatePDFDocument();
-  if (!result) {
-    showToast("PDF generation failed.", "error");
+  const invoice = state.currentInvoice;
+  if (!invoice) {
+    showToast("No active invoice found.", "error");
+    return;
+  }
+  
+  const cartItems = invoice.items || [];
+  if (cartItems.length === 0) {
+    showToast("No items in cart", "error");
+    alert("No items in cart");
     return;
   }
 
+  showToast("Preparing PDF for Sharing...", "info");
+  
+  // Pass complete invoice object as requested in requirement 5
+  const completeInvoice = {
+    customer: invoice.customerName || invoice.customer || "Walk-in Customer",
+    items: cartItems,
+    subtotal: invoice.subtotal || 0,
+    discount: invoice.discount || 0,
+    total: invoice.total || 0,
+    paymentMode: invoice.paymentMode || "cash",
+    invoiceNo: invoice.invoiceNo,
+    date: invoice.date,
+    time: invoice.time,
+    customerPhone: invoice.customerPhone || ""
+  };
+
   try {
+    const result = await generatePDFDocument(completeInvoice);
+    if (!result) {
+      throw new Error("generatePDFDocument returned null");
+    }
+    
     const pdfBlob = result.doc.output("blob");
     const file = new File([pdfBlob], result.filename, { type: "application/pdf" });
 
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
         files: [file],
-        text: `Gurbhej Grocery Store Invoice - ${invoice.invoiceNo}`
+        text: `Gurbhej Grocery Store Invoice - ${completeInvoice.invoiceNo}`
       });
       showToast("PDF shared successfully!", "success");
     } else {
@@ -1740,7 +1956,8 @@ async function shareInvoicePDF() {
     }
   } catch (err) {
     console.error("PDF sharing failed:", err);
-    showToast("Sharing cancelled or failed.", "error");
+    showToast(`PDF Sharing failed. Falling back to browser print...`, "error");
+    window.print();
   }
 }
 
@@ -1777,9 +1994,9 @@ function shareInvoiceWhatsApp() {
   if (invoice.paymentMode === "udhaar") {
     // Note: UPI configurations are fetched from the complete DB settings object
     const settings = DB.getSettings();
-    const upiName = settings.upiName || "Gurbhej Singh";
-    const upiPhone = settings.upiPhone || "7973679747";
-    const upiId = settings.upiId || "paytm.s1sd9a3@pty";
+    const upiName = settings.upiName || "Account Holder Name";
+    const upiPhone = settings.upiPhone || "9876543210";
+    const upiId = settings.upiId || "yourname@upi";
     
     msg += `Pending Udhaar Payment:\n`;
     msg += `Scan QR or pay via UPI:\n`;
@@ -3759,11 +3976,12 @@ let setupQrBase64 = "";
 
 function checkFirstTimeProfile() {
   const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
-  const shop = DB.getSettings();
+  const shop = DB.getSettings() || {};
   
   // Existing users should not lose data. If settings already exist, skip setup automatically.
   if (shop && shop.profileCompleted && !isSetupComplete) {
     localStorage.setItem("storeSetupComplete", "true");
+    document.body.classList.remove("setup-active");
     // Show normal app layout
     const mainEl = document.querySelector("main");
     if (mainEl) mainEl.style.display = "";
@@ -3775,6 +3993,7 @@ function checkFirstTimeProfile() {
   }
 
   if (!isSetupComplete && !shop.profileCompleted) {
+    document.body.classList.add("setup-active");
     // On first launch, do not open Dashboard. Hide layout frameworks.
     const mainEl = document.querySelector("main");
     if (mainEl) mainEl.style.display = "none";
@@ -3816,6 +4035,7 @@ function checkFirstTimeProfile() {
     const overlay = document.getElementById("profile-setup-overlay");
     if (overlay) overlay.style.display = "block";
   } else {
+    document.body.classList.remove("setup-active");
     // Show normal app layout
     const mainEl = document.querySelector("main");
     if (mainEl) mainEl.style.display = "";
@@ -3887,6 +4107,7 @@ function setupProfileSetupEventListeners() {
   // Close Setup overlay
   if (setupCloseBtn) {
     setupCloseBtn.addEventListener("click", () => {
+      document.body.classList.remove("setup-active");
       const overlay = document.getElementById("profile-setup-overlay");
       if (overlay) overlay.style.display = "none";
     });
@@ -3915,6 +4136,7 @@ function setupProfileSetupEventListeners() {
       
       // Requirement 5: Set localStorage.setItem("storeSetupComplete","true")
       localStorage.setItem("storeSetupComplete", "true");
+      document.body.classList.remove("setup-active");
       
       showToast("Shop profile successfully saved!", "success");
       
@@ -3938,6 +4160,7 @@ function setupProfileSetupEventListeners() {
   // Bind settings "Edit Store Profile" banner button
   if (editProfileBtn) {
     editProfileBtn.addEventListener("click", () => {
+      document.body.classList.add("setup-active");
       const shop = DB.getSettings();
       
       document.getElementById("setup-shop-name").value = shop.shopName || "";

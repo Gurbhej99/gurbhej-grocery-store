@@ -29,7 +29,7 @@ const DEFAULT_CATEGORIES = [
 ];
 
 const DEFAULT_CUSTOMERS = [
-  { id: "cust_gurbhej", name: "Gurbhej Singh", phone: "9876543210", pendingBalance: 520, totalBills: 1, totalPurchase: 520, lastVisit: "2026-06-01", createdAt: "2026-05-15T10:00:00Z" },
+  { id: "cust_gurpreet", name: "Gurpreet Singh", phone: "9876543210", pendingBalance: 520, totalBills: 1, totalPurchase: 520, lastVisit: "2026-06-01", createdAt: "2026-05-15T10:00:00Z" },
   { id: "cust_amit", name: "Amit Kumar", phone: "9812345678", pendingBalance: 0, totalBills: 1, totalPurchase: 500, lastVisit: "2026-06-01", createdAt: "2026-05-18T12:30:00Z" },
   { id: "cust_rajwinder", name: "Rajwinder Kaur", phone: "9855566677", pendingBalance: 1250, totalBills: 0, totalPurchase: 0, lastVisit: "-", createdAt: "2026-05-20T14:45:00Z" }
 ];
@@ -40,8 +40,8 @@ const DEFAULT_INVOICES = [
     invoiceNo: "GS-1001",
     date: "2026-06-01",
     time: "09:30",
-    customerId: "cust_gurbhej",
-    customerName: "Gurbhej Singh",
+    customerId: "cust_gurpreet",
+    customerName: "Gurpreet Singh",
     customerPhone: "9876543210",
     items: [
       { id: "prod_sugar", name: "Sugar", nameHi: "चीनी", namePa: "ਖੰਡ", qty: 2, rate: 46, amount: 92 },
@@ -459,27 +459,54 @@ class DatabaseEngine {
     const list = this.getCustomers();
     const phone = customer.phone ? customer.phone.trim() : "";
     
-    if (!customer.id && phone) {
-      const existing = list.find(c => c.phone && c.phone.trim() === phone);
-      if (existing) {
-        customer.id = existing.id;
-        // Merge pending balances or take the maximum/existing
-        customer.pendingBalance = customer.pendingBalance || existing.pendingBalance || 0;
-        customer.createdAt = existing.createdAt || new Date().toISOString();
+    let existing = null;
+    if (phone) {
+      existing = list.find(c => c.phone && c.phone.trim() === phone);
+    }
+    
+    if (existing) {
+      // Reuse the existing customer ID
+      const targetId = existing.id;
+      const idx = list.findIndex(c => c.id === targetId);
+      
+      if (idx >= 0) {
+        const existingCust = list[idx];
+        let mergedTotalBills = (existingCust.totalBills || 0);
+        let mergedTotalPurchase = (existingCust.totalPurchase || 0);
+        
+        if (customer.id !== existingCust.id) {
+          mergedTotalBills += (customer.totalBills || 0);
+          mergedTotalPurchase += (customer.totalPurchase || 0);
+        } else {
+          mergedTotalBills = customer.totalBills !== undefined ? customer.totalBills : mergedTotalBills;
+          mergedTotalPurchase = customer.totalPurchase !== undefined ? customer.totalPurchase : mergedTotalPurchase;
+        }
+        
+        list[idx] = {
+          ...existingCust,
+          ...customer,
+          id: targetId,
+          totalBills: mergedTotalBills,
+          totalPurchase: mergedTotalPurchase,
+          pendingBalance: customer.pendingBalance !== undefined ? customer.pendingBalance : (existingCust.pendingBalance || 0),
+          createdAt: existingCust.createdAt || customer.createdAt || new Date().toISOString(),
+          lastVisit: (customer.lastVisit && customer.lastVisit !== "-") ? customer.lastVisit : (existingCust.lastVisit || "-")
+        };
+        customer = list[idx];
       }
-    }
-
-    if (!customer.id) {
-      customer.id = "cust_" + Date.now();
-      customer.pendingBalance = customer.pendingBalance || 0;
-      customer.createdAt = new Date().toISOString();
-    }
-
-    const idx = list.findIndex(c => c.id === customer.id);
-    if (idx >= 0) {
-      list[idx] = { ...list[idx], ...customer };
     } else {
-      list.push(customer);
+      if (!customer.id) {
+        customer.id = "cust_" + Date.now();
+        customer.pendingBalance = customer.pendingBalance || 0;
+        customer.createdAt = new Date().toISOString();
+      }
+      
+      const idx = list.findIndex(c => c.id === customer.id);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...customer };
+      } else {
+        list.push(customer);
+      }
     }
 
     this.setLocalData("customers", list);
