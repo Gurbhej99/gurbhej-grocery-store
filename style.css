@@ -3396,6 +3396,7 @@ body.modal-open {
 
 /* First-Time Setup Overlay Overrides & Print Template Hiding */
 #profile-setup-overlay {
+  display: none !important;
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -3406,9 +3407,12 @@ body.modal-open {
   overflow-y: auto !important;
   padding: 24px 16px !important;
   font-family: 'Outfit', sans-serif !important;
-  display: flex !important;
   justify-content: center !important;
   align-items: flex-start !important;
+}
+
+body.setup-active #profile-setup-overlay {
+  display: flex !important;
 }
 
 @media (max-width: 768px) {

@@ -228,10 +228,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Database sync callback (fired when Firebase cloud sync triggers an update)
     updateCloudStatusIndicator();
     populateCategoryDropdowns();
-    const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
+    
+    console.log(
+      "STORE SETUP VALUE:",
+      localStorage.getItem("storeSetupComplete")
+    );
+    const isSetupComplete = String(localStorage.getItem("storeSetupComplete")).trim() === "true";
     const shop = DB.getSettings() || {};
-    if (isSetupComplete || shop.profileCompleted) {
+    
+    // Sync profileCompleted with storeSetupComplete
+    if (shop.profileCompleted && !isSetupComplete) {
+      localStorage.setItem("storeSetupComplete", "true");
+    }
+    
+    const setupDone = String(localStorage.getItem("storeSetupComplete")).trim() === "true";
+    if (setupDone || shop.profileCompleted) {
+      console.log("OPENING MAIN APP");
       renderActivePage();
+    } else {
+      console.log("OPENING SETUP");
     }
     checkFirstTimeProfile();
   });
@@ -381,11 +396,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupProfileSetupEventListeners();
 
   // Draw initial page
-  const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
+  console.log(
+    "STORE SETUP VALUE:",
+    localStorage.getItem("storeSetupComplete")
+  );
+  const isSetupComplete = String(localStorage.getItem("storeSetupComplete")).trim() === "true";
   const shop = DB.getSettings() || {};
+  
+  // Sync profileCompleted with storeSetupComplete
+  if (shop.profileCompleted && !isSetupComplete) {
+    localStorage.setItem("storeSetupComplete", "true");
+  }
+  
+  const setupDone = String(localStorage.getItem("storeSetupComplete")).trim() === "true";
   console.log("RENDER CALLED");
-  if (isSetupComplete || shop.profileCompleted) {
+  if (setupDone || shop.profileCompleted) {
+    console.log("OPENING MAIN APP");
     renderActivePage();
+  } else {
+    console.log("OPENING SETUP");
   }
   checkFirstTimeProfile();
   
@@ -984,6 +1013,7 @@ function setupBillingEventListeners() {
         }
         state.selectedBillingCustomerId = "";
       }
+      updateBillingPreviousBalanceUI();
     });
   }
 
@@ -1017,7 +1047,7 @@ function setupBillingEventListeners() {
   const invoicePrintBtn = document.getElementById("invoice-print-btn");
   if (invoicePrintBtn) {
     invoicePrintBtn.addEventListener("click", () => {
-      window.print();
+      triggerPrint();
     });
   }
 
@@ -1169,7 +1199,54 @@ function populateBillingCustomerSelector() {
       document.getElementById("billing-customer-name").value = "Walk-in Customer";
       document.getElementById("billing-customer-phone").value = "";
     }
+    updateBillingPreviousBalanceUI();
   });
+}
+
+function updateBillingPreviousBalanceUI() {
+  const prevBalBox = document.getElementById("billing-previous-balance-box");
+  if (!prevBalBox) return;
+
+  // Get selected customer
+  let selectedCustomer = null;
+  if (state.selectedBillingCustomerId) {
+    selectedCustomer = DB.getCustomers().find(c => c.id === state.selectedBillingCustomerId);
+  } else {
+    // If not selected by dropdown, check if phone number matches an existing customer
+    const phoneInput = document.getElementById("billing-customer-phone");
+    const phoneVal = phoneInput ? phoneInput.value.trim() : "";
+    if (phoneVal) {
+      selectedCustomer = DB.getCustomers().find(c => c.phone === phoneVal);
+    }
+  }
+
+  if (selectedCustomer && selectedCustomer.pendingBalance > 0) {
+    const prevBal = selectedCustomer.pendingBalance;
+    if (state.activeBillingMode === "udhaar") {
+      // 1. Payment Mode is Udhaar: Show balance and checkbox
+      prevBalBox.innerHTML = `
+        <div style="background-color: var(--primary-light); color: var(--primary); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; width: 100%;">
+          Previous Pending Balance: ₹<span id="billing-prev-bal-val">${prevBal.toFixed(2)}</span>
+        </div>
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; width: 100%;">
+          <input type="checkbox" id="billing-include-prev-bal" style="width: 16px; height: 16px; accent-color: var(--primary); margin: 0; cursor: pointer;">
+          <label for="billing-include-prev-bal" style="margin-bottom: 0; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text);">Add previous balance to this bill</label>
+        </div>
+      `;
+      prevBalBox.style.display = "flex";
+    } else {
+      // 2. Payment Mode is Cash: Show warning only (no checkbox)
+      prevBalBox.innerHTML = `
+        <div style="background-color: #fef3c7; color: #b45309; border: 1.5px solid rgba(245, 158, 11, 0.2); padding: 8px 12px; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; width: 100%;">
+          Previous pending balance: ₹${prevBal.toFixed(2)}
+        </div>
+      `;
+      prevBalBox.style.display = "flex";
+    }
+  } else {
+    prevBalBox.style.display = "none";
+    prevBalBox.innerHTML = "";
+  }
 }
 
 // Render filtered dropdown matching items
@@ -1206,9 +1283,23 @@ function renderSearchSuggestions(matches) {
   suggestionsBox.classList.add("active");
 }
 
-function formatQtyDisplay(qty, unit) {
+function formatQtyDisplay(qty, unit, selectedUnit = null) {
   const q = parseFloat(qty);
   if (isNaN(q)) return "0";
+  
+  if (selectedUnit === "gram") {
+    return `${parseFloat((q * 1000).toFixed(3))}g`;
+  }
+  if (selectedUnit === "ml") {
+    return `${parseFloat((q * 1000).toFixed(3))}ml`;
+  }
+  if (selectedUnit === "kg") {
+    return `${q}kg`;
+  }
+  if (selectedUnit === "litre") {
+    return `${q}L`;
+  }
+
   if (unit === "kg") {
     if (q < 1) {
       return `${Math.round(q * 1000)}g`;
@@ -1249,11 +1340,19 @@ function addProductToCart(product) {
     exists.qty += 1;
     exists.amount = parseFloat((exists.qty * exists.rate).toFixed(2));
   } else {
+    let defaultSelectedUnit = product.unit;
+    if (product.unit === "kg") {
+      defaultSelectedUnit = "gram";
+    } else if (product.unit === "litre") {
+      defaultSelectedUnit = "ml";
+    }
+
     state.cart.push({
       id: product.id,
       name: product.name,
       rate: product.rate,
       unit: product.unit,
+      selectedUnit: defaultSelectedUnit,
       qty: 1,
       amount: product.rate
     });
@@ -1285,12 +1384,14 @@ function renderCart() {
     let quickButtonsHTML = "";
     if (item.unit === "kg") {
       quickButtonsHTML = `
+        <button class="quick-qty-btn" data-add="0.1">+100g</button>
         <button class="quick-qty-btn" data-add="0.25">+250g</button>
         <button class="quick-qty-btn" data-add="0.5">+500g</button>
         <button class="quick-qty-btn" data-add="1">+1kg</button>
       `;
     } else if (item.unit === "litre") {
       quickButtonsHTML = `
+        <button class="quick-qty-btn" data-add="0.1">+100ml</button>
         <button class="quick-qty-btn" data-add="0.25">+250ml</button>
         <button class="quick-qty-btn" data-add="0.5">+500ml</button>
         <button class="quick-qty-btn" data-add="1">+1L</button>
@@ -1316,17 +1417,42 @@ function renderCart() {
       `;
     }
 
+    let selectHTML = "";
+    if (item.unit === "kg") {
+      selectHTML = `
+        <select class="form-control cart-unit-select" style="width: auto; padding: 4px 8px; height: 34px; font-size: 0.85rem; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background-color: var(--bg); cursor: pointer; margin-left: 4px;">
+          <option value="kg" ${item.selectedUnit === "kg" ? "selected" : ""}>kg</option>
+          <option value="gram" ${item.selectedUnit === "gram" ? "selected" : ""}>gram</option>
+        </select>
+      `;
+    } else if (item.unit === "litre") {
+      selectHTML = `
+        <select class="form-control cart-unit-select" style="width: auto; padding: 4px 8px; height: 34px; font-size: 0.85rem; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background-color: var(--bg); cursor: pointer; margin-left: 4px;">
+          <option value="litre" ${item.selectedUnit === "litre" ? "selected" : ""}>litre</option>
+          <option value="ml" ${item.selectedUnit === "ml" ? "selected" : ""}>ml</option>
+        </select>
+      `;
+    }
+
+    let displayQty = item.qty;
+    if (item.selectedUnit === "gram" || item.selectedUnit === "ml") {
+      displayQty = parseFloat((item.qty * 1000).toFixed(3));
+    }
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td style="font-weight: 600; color: var(--dark);">
         <div>${item.name.split(" (")[0]} <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">(${item.unit})</span></div>
         <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal; margin-top: 2px;">
-          Rate: ₹${item.rate}/${item.unit} | Qty: <span class="cart-item-qty-display" style="font-weight:600; color:var(--primary);">${formatQtyDisplay(item.qty, item.unit)}</span>
+          Rate: ₹${item.rate}/${item.unit} | Qty: <span class="cart-item-qty-display" style="font-weight:600; color:var(--primary);">${formatQtyDisplay(item.qty, item.unit, item.selectedUnit)}</span>
         </div>
       </td>
       <td style="font-weight: 500;">₹${item.rate}/${item.unit}</td>
       <td>
-        <input type="number" class="form-control cart-input cart-qty-input" value="${item.qty}" min="0.001" step="any">
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <input type="number" class="form-control cart-input cart-qty-input" value="${displayQty}" min="0.001" step="any" style="flex: 1; min-width: 65px;">
+          ${selectHTML}
+        </div>
         <div class="quick-qty-box">
           ${quickButtonsHTML}
         </div>
@@ -1347,16 +1473,22 @@ function renderCart() {
     const qtyInput = tr.querySelector(".cart-qty-input");
     const amountInput = tr.querySelector(".cart-amount-input");
     const qtyDisplay = tr.querySelector(".cart-item-qty-display");
+    const unitSelect = tr.querySelector(".cart-unit-select");
 
     qtyInput.addEventListener("input", () => {
-      let qty = parseFloat(qtyInput.value);
-      if (isNaN(qty) || qty <= 0) qty = 0;
+      let val = parseFloat(qtyInput.value);
+      if (isNaN(val) || val <= 0) val = 0;
       
-      item.qty = qty;
-      item.amount = parseFloat((qty * item.rate).toFixed(2));
+      let baseQty = val;
+      if (item.selectedUnit === "gram" || item.selectedUnit === "ml") {
+        baseQty = val / 1000;
+      }
+      
+      item.qty = baseQty;
+      item.amount = parseFloat((baseQty * item.rate).toFixed(2));
       amountInput.value = item.amount.toFixed(2);
       
-      if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(qty, item.unit);
+      if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(baseQty, item.unit, item.selectedUnit);
       recalculateCartTotals();
     });
 
@@ -1365,18 +1497,40 @@ function renderCart() {
       if (isNaN(amount) || amount <= 0) amount = 0;
 
       item.amount = amount;
-      item.qty = parseFloat((amount / item.rate).toFixed(2));
-      qtyInput.value = item.qty;
+      
+      let precision = (item.unit === "kg" || item.unit === "litre") ? 3 : 2;
+      let baseQty = parseFloat((amount / item.rate).toFixed(precision));
+      item.qty = baseQty;
 
-      if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(item.qty, item.unit);
+      qtyInput.value = item.selectedUnit === "gram" || item.selectedUnit === "ml"
+        ? parseFloat((baseQty * 1000).toFixed(3))
+        : baseQty;
+
+      if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(item.qty, item.unit, item.selectedUnit);
       recalculateCartTotals();
     });
+
+    if (unitSelect) {
+      unitSelect.addEventListener("change", () => {
+        const newUnit = unitSelect.value;
+        item.selectedUnit = newUnit;
+        
+        let newDisplayQty = item.qty;
+        if (newUnit === "gram" || newUnit === "ml") {
+          newDisplayQty = parseFloat((item.qty * 1000).toFixed(3));
+        }
+        qtyInput.value = newDisplayQty;
+        
+        if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(item.qty, item.unit, item.selectedUnit);
+        recalculateCartTotals();
+      });
+    }
 
     // Quick Qty Increments triggers
     tr.querySelectorAll(".quick-qty-btn").forEach(qBtn => {
       qBtn.addEventListener("click", () => {
         const val = parseFloat(qBtn.dataset.add);
-        let currentQty = parseFloat(qtyInput.value) || 0;
+        let currentQty = parseFloat(item.qty) || 0;
         
         if (item.unit === "piece" || item.unit === "packet" || item.unit === "box") {
           currentQty = Math.round(currentQty + (val >= 1 ? val : 1));
@@ -1384,12 +1538,15 @@ function renderCart() {
           currentQty = parseFloat((currentQty + val).toFixed(3));
         }
         
-        qtyInput.value = currentQty;
         item.qty = currentQty;
         item.amount = parseFloat((currentQty * item.rate).toFixed(2));
         amountInput.value = item.amount.toFixed(2);
+
+        qtyInput.value = item.selectedUnit === "gram" || item.selectedUnit === "ml"
+          ? parseFloat((currentQty * 1000).toFixed(3))
+          : currentQty;
         
-        if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(currentQty, item.unit);
+        if (qtyDisplay) qtyDisplay.textContent = formatQtyDisplay(currentQty, item.unit, item.selectedUnit);
         recalculateCartTotals();
       });
     });
@@ -1447,6 +1604,7 @@ function toggleBillingPaymentMode(mode) {
     state.activeBillingMode = "udhaar";
     populateBillingCustomerSelector();
   }
+  updateBillingPreviousBalanceUI();
 }
 
 // Generate active billing invoice slip
@@ -1523,6 +1681,23 @@ async function generateInvoice() {
 
   const shopSettings = DB.getSettings();
 
+  // Save previous balance info
+  let previousBalance = 0;
+  let includePreviousBalance = false;
+  let totalPayable = grandTotal;
+
+  if (state.activeBillingMode === "udhaar" && resolvedCustomerId) {
+    const cust = DB.getCustomers().find(c => c.id === resolvedCustomerId);
+    if (cust && (cust.pendingBalance > 0 || cust.balance > 0)) {
+      previousBalance = cust.balance || cust.pendingBalance || 0;
+      const cb = document.getElementById("billing-include-prev-bal");
+      if (cb && cb.checked) {
+        includePreviousBalance = true;
+        totalPayable = grandTotal + previousBalance;
+      }
+    }
+  }
+
   const invoice = {
     invoiceNo: nextInvNum,
     date: new Date().toISOString().split("T")[0],
@@ -1534,8 +1709,12 @@ async function generateInvoice() {
     subtotal: parseFloat(subtotal.toFixed(2)),
     discount: parseFloat(discount.toFixed(2)),
     total: parseFloat(grandTotal.toFixed(2)),
+    currentBillTotal: parseFloat(grandTotal.toFixed(2)),
     paymentMode: state.activeBillingMode || "cash",
-    status: state.activeBillingMode === "udhaar" ? "Pending" : "Paid"
+    status: state.activeBillingMode === "udhaar" ? "Pending" : "Paid",
+    previousBalance: parseFloat(previousBalance.toFixed(2)),
+    includePreviousBalance: includePreviousBalance,
+    totalPayable: parseFloat(totalPayable.toFixed(2))
   };
 
   showToast("Saving invoice...", "info");
@@ -1553,6 +1732,12 @@ async function generateInvoice() {
   
   const hint = document.getElementById("billing-customer-history-hint");
   if (hint) hint.style.display = "none";
+
+  const prevBalBox = document.getElementById("billing-previous-balance-box");
+  if (prevBalBox) {
+    prevBalBox.style.display = "none";
+    prevBalBox.innerHTML = "";
+  }
 
   // Show Thermal slip Modal
   openInvoiceModal(savedInv);
@@ -1597,33 +1782,80 @@ function openInvoiceModal(invoice) {
         <div style="font-weight: bold; font-family: 'Outfit', sans-serif; font-size:12px;">${displayName}</div>
       </td>
       <td class="num-cell" style="vertical-align: top;">₹${item.rate}/${item.unit}</td>
-      <td class="num-cell" style="vertical-align: top;">${formatQtyDisplay(item.qty, item.unit)}</td>
+      <td class="num-cell" style="vertical-align: top;">${formatQtyDisplay(item.qty, item.unit, item.selectedUnit)}</td>
       <td class="num-cell" style="vertical-align: top;">₹${item.amount.toFixed(2)}</td>
     `;
     tbody.appendChild(tr);
   });
 
   // Populate Totals
-  document.getElementById("invoice-subtotal-val").textContent = `₹${invoice.subtotal.toFixed(2)}`;
-  document.getElementById("invoice-discount-val").textContent = `₹${invoice.discount.toFixed(2)}`;
-  document.getElementById("invoice-total-val").textContent = `₹${invoice.total.toFixed(2)}`;
+  const totalsBlock = document.querySelector(".invoice-totals-block");
+  if (totalsBlock) {
+    if (invoice.paymentMode === "udhaar" && invoice.includePreviousBalance) {
+      const currentBill = invoice.currentBillTotal !== undefined ? invoice.currentBillTotal : invoice.total;
+      totalsBlock.innerHTML = `
+        <div class="invoice-total-row">
+          <span>Subtotal:</span>
+          <span>₹${invoice.subtotal.toFixed(2)}</span>
+        </div>
+        <div class="invoice-total-row">
+          <span>Discount:</span>
+          <span>₹${invoice.discount.toFixed(2)}</span>
+        </div>
+        <div class="invoice-total-row grand">
+          <span>Current Bill:</span>
+          <span>₹${currentBill.toFixed(2)}</span>
+        </div>
+        <div class="invoice-total-row" style="border-top: 1px dashed #000; padding-top: 4px; margin-top: 2px;">
+          <span>Previous Udhaar:</span>
+          <span>₹${invoice.previousBalance.toFixed(2)}</span>
+        </div>
+        <div class="invoice-total-row grand" style="border-top: 1.5px solid #000; padding-top: 4px; margin-top: 2px;">
+          <span>Total Payable:</span>
+          <span>₹${invoice.totalPayable.toFixed(2)}</span>
+        </div>
+        <div class="invoice-total-row" style="font-weight: bold; border-top: 1px dashed #000; padding-top: 4px;">
+          <span>Payment Mode:</span>
+          <span id="invoice-paymode-val" style="color: var(--danger);">UDHAAR (CREDIT / PENDING)</span>
+        </div>
+      `;
+    } else {
+      totalsBlock.innerHTML = `
+        <div class="invoice-total-row">
+          <span>Subtotal:</span>
+          <span>₹${invoice.subtotal.toFixed(2)}</span>
+        </div>
+        <div class="invoice-total-row">
+          <span>Discount:</span>
+          <span>₹${invoice.discount.toFixed(2)}</span>
+        </div>
+        <div class="invoice-total-row grand">
+          <span>GRAND TOTAL:</span>
+          <span>₹${invoice.total.toFixed(2)}</span>
+        </div>
+        <div class="invoice-total-row" style="font-weight: bold; border-top: 1px dashed #000; padding-top: 4px;">
+          <span>Payment Mode:</span>
+          <span id="invoice-paymode-val" style="color: ${invoice.paymentMode === "udhaar" ? "var(--danger)" : "var(--success)"};">${invoice.paymentMode === "udhaar" ? "UDHAAR (CREDIT / PENDING)" : "CASH (PAID)"}</span>
+        </div>
+      `;
+    }
+  }
   
   // Format Payment mode title
   const modeVal = document.getElementById("invoice-paymode-val");
   const upiSection = document.getElementById("invoice-upi-section");
   if (invoice.paymentMode === "udhaar") {
-    modeVal.textContent = "UDHAAR (CREDIT / PENDING)";
-    modeVal.style.color = "var(--danger)";
-
     // Populate UPI dynamic block
     const upiName = shop.upiName || "Account Holder Name";
     const upiPhone = shop.upiPhone || "9876543210";
     const upiId = shop.upiId || "yourname@upi";
     
+    const qrAmount = invoice.includePreviousBalance ? invoice.totalPayable : invoice.total;
+
     document.getElementById("invoice-upi-name-val").textContent = upiName;
     document.getElementById("invoice-upi-phone-val").textContent = upiPhone;
     document.getElementById("invoice-upi-id-val").textContent = upiId;
-    document.getElementById("invoice-upi-amount-val").textContent = invoice.total.toFixed(2);
+    document.getElementById("invoice-upi-amount-val").textContent = qrAmount.toFixed(2);
 
     const qrContainer = document.getElementById("invoice-upi-qr-container");
     if (qrContainer) {
@@ -1637,7 +1869,7 @@ function openInvoiceModal(invoice) {
       } else {
         const img = document.createElement("img");
         const cleanName = encodeURIComponent(upiName);
-        const upiString = `upi://pay?pa=${upiId}&pn=${cleanName}&am=${invoice.total.toFixed(2)}&cu=INR`;
+        const upiString = `upi://pay?pa=${upiId}&pn=${cleanName}&am=${qrAmount.toFixed(2)}&cu=INR`;
         img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiString)}`;
         img.className = "invoice-upi-qr-img";
         img.alt = "UPI QR Code";
@@ -1649,8 +1881,6 @@ function openInvoiceModal(invoice) {
     }
     if (upiSection) upiSection.style.display = "flex";
   } else {
-    modeVal.textContent = "CASH (PAID)";
-    modeVal.style.color = "var(--success)";
     if (upiSection) upiSection.style.display = "none";
   }
 
@@ -1696,165 +1926,92 @@ function getEnglishName(name) {
   return clean.trim();
 }
 
+function triggerPrint() {
+  const template = document.getElementById("pdf-print-template");
+  if (template) {
+    template.style.display = "block";
+    template.style.visibility = "visible";
+  }
+  window.print();
+  if (template) {
+    template.style.display = "none";
+    template.style.visibility = "hidden";
+  }
+}
+
 async function generatePDFDocument(invoiceData = state.currentInvoice) {
   const invoice = invoiceData;
   if (!invoice) {
-    showToast("No items in cart", "error");
+    showToast("No active invoice found", "error");
     return null;
   }
 
-  // Resolve jsPDF class safely supporting all common loader variations
-  let jsPDFClass = null;
-  if (window.jspdf && window.jspdf.jsPDF) {
-    jsPDFClass = window.jspdf.jsPDF;
-  } else if (window.jsPDF) {
-    jsPDFClass = window.jsPDF;
-  }
-
-  if (!jsPDFClass) {
-    throw new Error("jsPDF library is not loaded on the window object.");
-  }
-
-  const cartItems = invoice.items || [];
-
-  if (cartItems.length === 0) {
-    showToast("No items in cart", "error");
+  const receipt = document.getElementById("thermal-receipt-paper");
+  if (!receipt) {
+    showToast("Receipt preview not found", "error");
     return null;
   }
+
+  // Preserve the original styles
+  const originalWidth = receipt.style.width;
+  const originalBoxShadow = receipt.style.boxShadow;
+  const originalBorder = receipt.style.border;
+
+  // Temporarily apply fixed styling to make it a perfect thermal receipt sheet
+  receipt.style.width = "400px";
+  receipt.style.boxShadow = "none";
+  receipt.style.border = "none";
 
   try {
-    // Generate a high-quality programmatic vector text-only PDF using jsPDF
+    // Render using html2canvas
+    const canvas = await html2canvas(receipt, {
+      scale: 2, // High resolution scale
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: "#ffffff",
+      logging: false
+    });
+
+    // Restore original styles
+    receipt.style.width = originalWidth;
+    receipt.style.boxShadow = originalBoxShadow;
+    receipt.style.border = originalBorder;
+
+    // Resolve jsPDF class safely supporting all common loader variations
+    let jsPDFClass = null;
+    if (window.jspdf && window.jspdf.jsPDF) {
+      jsPDFClass = window.jspdf.jsPDF;
+    } else if (window.jsPDF) {
+      jsPDFClass = window.jsPDF;
+    }
+
+    if (!jsPDFClass) {
+      throw new Error("jsPDF library is not loaded on the window object.");
+    }
+
+    // Get image dimensions from canvas
+    const imgWidth = 80; // Standard 80mm thermal receipt width in PDF
+    const pageHeight = (canvas.height * imgWidth) / canvas.width;
+
+    // Create jsPDF document matching the custom size (80mm width by calculated height)
     const doc = new jsPDFClass({
       orientation: "portrait",
       unit: "mm",
-      format: "a4"
+      format: [imgWidth, pageHeight + 10] // Extra padding at bottom
     });
 
-    const shop = getShopProfile();
+    const imgData = canvas.toDataURL("image/png");
+    doc.addImage(imgData, "PNG", 0, 5, imgWidth, pageHeight);
+
     const invoiceNo = invoice.invoiceNo || "GS-" + Date.now();
-    const date = invoice.date || new Date().toISOString().split("T")[0];
-    const time = invoice.time || new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
-    const customerName = invoice.customerName || invoice.customer || "Walk-in Customer";
-    const customerPhone = invoice.customerPhone || "";
-    const subtotal = invoice.subtotal !== undefined ? invoice.subtotal : 0;
-    const discount = invoice.discount !== undefined ? invoice.discount : 0;
-    const total = invoice.total !== undefined ? invoice.total : 0;
-    const paymentMode = invoice.paymentMode || "cash";
-
-    let y = 20;
-
-    // Header Shop Info (Aesthetics: Centered bold shop title, regular subtexts)
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.text(shop.shopName, 105, y, { align: "center" });
-    y += 8;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    if (shop.shopTagline) {
-      doc.text(shop.shopTagline, 105, y, { align: "center" });
-      y += 6;
-    }
-    if (shop.shopAddress) {
-      doc.text(shop.shopAddress, 105, y, { align: "center" });
-      y += 6;
-    }
-    if (shop.shopPhone) {
-      doc.text(`Phone: ${shop.shopPhone}`, 105, y, { align: "center" });
-      y += 8;
-    }
-
-    doc.setLineWidth(0.5);
-    doc.line(15, y, 195, y);
-    y += 8;
-
-    // Invoice Metadata Block
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("INVOICE RECEIPT", 15, y);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    y += 6;
-
-    doc.text(`Invoice No: ${invoiceNo}`, 15, y);
-    doc.text(`Date & Time: ${date} ${time}`, 120, y);
-    y += 6;
-    doc.text(`Customer: ${customerName}`, 15, y);
-    if (customerPhone) {
-      doc.text(`Phone: ${customerPhone}`, 120, y);
-    }
-    y += 8;
-
-    doc.setLineWidth(0.3);
-    doc.line(15, y, 195, y);
-    y += 8;
-
-    // Products Table Headers
-    doc.setFont("helvetica", "bold");
-    doc.text("Item Name", 15, y);
-    doc.text("Rate", 110, y, { align: "right" });
-    doc.text("Qty", 145, y, { align: "right" });
-    doc.text("Amount", 190, y, { align: "right" });
-    doc.setFont("helvetica", "normal");
-    y += 4;
-    doc.line(15, y, 195, y);
-    y += 8;
-
-    // Products Rows
-    cartItems.forEach(item => {
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
-      const displayName = formatProductName(item);
-      const rateVal = parseFloat(item.rate) || 0;
-      const qtyVal = parseFloat(item.qty) || 0;
-      const amountVal = parseFloat(item.amount) || 0;
-
-      // Draw vector text rows
-      const rateStr = `Rs.${rateVal.toFixed(2)}/${item.unit || "piece"}`;
-      const qtyStr = formatQtyDisplay(qtyVal, item.unit || "piece");
-      const amountStr = `Rs.${amountVal.toFixed(2)}`;
-
-      doc.text(displayName, 15, y);
-      doc.text(rateStr, 110, y, { align: "right" });
-      doc.text(qtyStr, 145, y, { align: "right" });
-      doc.text(amountStr, 190, y, { align: "right" });
-      y += 6;
-    });
-
-    doc.line(15, y, 195, y);
-    y += 8;
-
-    // Totals Block Summary
-    doc.setFont("helvetica", "bold");
-    doc.text("Subtotal:", 145, y, { align: "right" });
-    doc.text(`Rs.${subtotal.toFixed(2)}`, 190, y, { align: "right" });
-    y += 6;
-
-    doc.text("Discount:", 145, y, { align: "right" });
-    doc.text(`Rs.${discount.toFixed(2)}`, 190, y, { align: "right" });
-    y += 6;
-
-    doc.setFontSize(12);
-    doc.text("GRAND TOTAL:", 145, y, { align: "right" });
-    doc.text(`Rs.${total.toFixed(2)}`, 190, y, { align: "right" });
-    y += 6;
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Payment Mode:", 145, y, { align: "right" });
-    doc.text(paymentMode.toUpperCase(), 190, y, { align: "right" });
-    y += 15;
-
-    // Footer
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.text("Thank you for shopping with us!", 105, y, { align: "center" });
-
     return { doc, filename: `Invoice_${invoiceNo}.pdf` };
   } catch (err) {
-    console.error("jsPDF direct programmatic PDF generation failed:", err);
+    // Restore original styles in case of error
+    receipt.style.width = originalWidth;
+    receipt.style.boxShadow = originalBoxShadow;
+    receipt.style.border = originalBorder;
+
+    console.error("HTML2Canvas PDF generation failed:", err);
     throw err;
   }
 }
@@ -1901,7 +2058,7 @@ async function downloadInvoicePDF() {
   } catch (err) {
     console.error("PDF generation/download failed:", err);
     showToast(`PDF Download failed. Falling back to browser print...`, "error");
-    window.print();
+    triggerPrint();
   }
 }
 
@@ -1957,7 +2114,7 @@ async function shareInvoicePDF() {
   } catch (err) {
     console.error("PDF sharing failed:", err);
     showToast(`PDF Sharing failed. Falling back to browser print...`, "error");
-    window.print();
+    triggerPrint();
   }
 }
 
@@ -1989,7 +2146,14 @@ function shareInvoiceWhatsApp() {
     msg += `${index + 1}. ${displayName} - ${item.qty} ${item.unit} x ₹${item.rate} = ₹${item.amount}\n`;
   });
 
-  msg += `\nGrand Total: ₹${invoice.total}\n\n`;
+  if (invoice.paymentMode === "udhaar" && invoice.includePreviousBalance) {
+    const currentBill = invoice.currentBillTotal !== undefined ? invoice.currentBillTotal : invoice.total;
+    msg += `\nCurrent Bill: ₹${currentBill.toFixed(2)}\n`;
+    msg += `Previous Udhaar: ₹${invoice.previousBalance.toFixed(2)}\n`;
+    msg += `Total Payable: ₹${invoice.totalPayable.toFixed(2)}\n\n`;
+  } else {
+    msg += `\nGrand Total: ₹${invoice.total.toFixed(2)}\n\n`;
+  }
   
   if (invoice.paymentMode === "udhaar") {
     // Note: UPI configurations are fetched from the complete DB settings object
@@ -2888,7 +3052,7 @@ function renderReports() {
         state.currentInvoice = inv;
         openInvoiceModal(inv);
         setTimeout(() => {
-          window.print();
+          triggerPrint();
           state.currentInvoice = oldCurrent;
         }, 300);
       });
@@ -3080,7 +3244,7 @@ function renderReports() {
         state.currentInvoice = inv;
         openInvoiceModal(inv);
         setTimeout(() => {
-          window.print();
+          triggerPrint();
           state.currentInvoice = oldCurrent;
         }, 300);
       });
@@ -3975,13 +4139,29 @@ function resetExpenseForm() {
 let setupQrBase64 = "";
 
 function checkFirstTimeProfile() {
-  const isSetupComplete = localStorage.getItem("storeSetupComplete") === "true";
+  console.log(
+    "STORE SETUP VALUE:",
+    localStorage.getItem("storeSetupComplete")
+  );
+
+  let setupDone = String(localStorage.getItem("storeSetupComplete")).trim() === "true";
   const shop = DB.getSettings() || {};
   
-  // Existing users should not lose data. If settings already exist, skip setup automatically.
-  if (shop && shop.profileCompleted && !isSetupComplete) {
+  // Sync profileCompleted with storeSetupComplete
+  if (shop.profileCompleted && !setupDone) {
     localStorage.setItem("storeSetupComplete", "true");
+    setupDone = true;
+  } else if (setupDone && !shop.profileCompleted) {
+    shop.profileCompleted = true;
+    DB.saveSettings(shop);
+  }
+
+  if (setupDone) {
+    console.log("OPENING MAIN APP");
     document.body.classList.remove("setup-active");
+    const overlay = document.getElementById("profile-setup-overlay");
+    if (overlay) overlay.style.display = "none";
+    
     // Show normal app layout
     const mainEl = document.querySelector("main");
     if (mainEl) mainEl.style.display = "";
@@ -3989,12 +4169,10 @@ function checkFirstTimeProfile() {
     if (asideEl) asideEl.style.display = "";
     const mobileNav = document.querySelector(".mobile-bottom-nav");
     if (mobileNav) mobileNav.style.display = "";
-    return;
-  }
-
-  if (!isSetupComplete && !shop.profileCompleted) {
+  } else {
+    console.log("OPENING SETUP");
     document.body.classList.add("setup-active");
-    // On first launch, do not open Dashboard. Hide layout frameworks.
+    // Hide layout frameworks
     const mainEl = document.querySelector("main");
     if (mainEl) mainEl.style.display = "none";
     const asideEl = document.querySelector("aside");
@@ -4034,15 +4212,6 @@ function checkFirstTimeProfile() {
     // Open Setup Screen
     const overlay = document.getElementById("profile-setup-overlay");
     if (overlay) overlay.style.display = "block";
-  } else {
-    document.body.classList.remove("setup-active");
-    // Show normal app layout
-    const mainEl = document.querySelector("main");
-    if (mainEl) mainEl.style.display = "";
-    const asideEl = document.querySelector("aside");
-    if (asideEl) asideEl.style.display = "";
-    const mobileNav = document.querySelector(".mobile-bottom-nav");
-    if (mobileNav) mobileNav.style.display = "";
   }
 }
 
@@ -4138,7 +4307,7 @@ function setupProfileSetupEventListeners() {
       localStorage.setItem("storeSetupComplete", "true");
       document.body.classList.remove("setup-active");
       
-      showToast("Shop profile successfully saved!", "success");
+      showToast("Profile saved. Opening dashboard...", "success");
       
       const overlay = document.getElementById("profile-setup-overlay");
       if (overlay) overlay.style.display = "none";
@@ -4154,6 +4323,10 @@ function setupProfileSetupEventListeners() {
       // Sync controls and render dashboard
       renderSettings();
       switchPage("dashboard");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
     });
   }
 
