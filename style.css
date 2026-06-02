@@ -1353,10 +1353,18 @@ header {
   color: var(--dark);
 }
 
+body.modal-open {
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+}
+
 .modal-body {
   padding: 24px;
-  max-height: 480px;
+  max-height: 80vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-footer {
@@ -2698,4 +2706,183 @@ header {
   align-items: center;
   gap: 4px;
   min-width: 90px;
+}
+
+/* ==========================================================================
+   Dedicated 80mm PDF Print Template Styles (Pixel-Perfect Thermal Receipts)
+   ========================================================================== */
+
+#pdf-print-template {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 300px !important;
+  min-width: 300px !important;
+  max-width: 300px !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  padding: 12px !important;
+  box-sizing: border-box !important;
+  line-height: 1.4 !important;
+  font-size: 11px !important;
+  z-index: -99999 !important;
+  visibility: visible !important;
+  opacity: 1 !important; /* Fully visible for canvas capture */
+  pointer-events: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  transform: none !important;
+}
+
+/* Enforce font-family, letter-spacing, and word-spacing globally inside PDF */
+#pdf-print-template,
+#pdf-print-template * {
+  font-family: Arial, sans-serif !important;
+  letter-spacing: 0px !important;
+  word-spacing: 0px !important;
+  font-kerning: none !important;
+  font-variant-ligatures: none !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Center Align Header Elements strictly */
+#pdf-shop-name,
+#pdf-shop-tagline,
+#pdf-shop-address,
+#pdf-shop-phone {
+  text-align: center !important;
+  margin: 0 auto 4px auto !important;
+  display: block !important;
+  width: 100% !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  white-space: normal !important;
+}
+
+#pdf-shop-name {
+  font-size: 15px !important;
+  font-weight: bold !important;
+  line-height: 1.2 !important;
+}
+
+#pdf-shop-tagline {
+  font-size: 10px !important;
+  color: #555555 !important;
+  font-style: italic !important;
+  line-height: 1.2 !important;
+}
+
+#pdf-shop-address,
+#pdf-shop-phone {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+}
+
+/* Table styling with strictly fixed column widths */
+#pdf-print-template table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  table-layout: fixed !important;
+}
+
+#pdf-print-template th,
+#pdf-print-template td {
+  padding: 4px 0 !important;
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+#pdf-print-template th.col-item,
+#pdf-print-template td.col-item {
+  width: 45% !important;
+  text-align: left !important;
+}
+
+#pdf-print-template th.col-rate,
+#pdf-print-template td.col-rate {
+  width: 20% !important;
+  text-align: right !important;
+}
+
+#pdf-print-template th.col-qty,
+#pdf-print-template td.col-qty {
+  width: 15% !important;
+  text-align: center !important;
+}
+
+#pdf-print-template th.col-amount,
+#pdf-print-template td.col-amount {
+  width: 20% !important;
+  text-align: right !important;
+}
+
+/* QR Code Section container and sizing to avoid scaling/stretch bugs */
+#pdf-upi-qr-container {
+  width: 65px !important;
+  height: 65px !important;
+  min-width: 65px !important;
+  max-width: 65px !important;
+  min-height: 65px !important;
+  max-height: 65px !important;
+  border: 1px solid #dddddd !important;
+  border-radius: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+}
+
+#pdf-upi-qr {
+  width: 65px !important;
+  height: 65px !important;
+  min-width: 65px !important;
+  max-width: 65px !important;
+  min-height: 65px !important;
+  max-height: 65px !important;
+  object-fit: contain !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+}
+
+/* ==========================================================================
+   Expense Management Panel Layout (Split-Screen Mobile Responsive Grid)
+   ========================================================================== */
+.expenses-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 992px) {
+  .expenses-layout {
+    grid-template-columns: 300px 1fr;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .expenses-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+/* Green stats glow effect for Profit card */
+.stat-card-glow-green {
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.15), 0 8px 10px -6px rgba(16, 185, 129, 0.1) !important;
+  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card-glow-green:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(16, 185, 129, 0.25), 0 10px 10px -5px rgba(16, 185, 129, 0.15) !important;
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "gurbhej-store-cache-v1";
+const CACHE_NAME = "gurbhej-store-cache-v2"; // Incremented version to refresh client caches
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
@@ -8,7 +8,9 @@ const ASSETS_TO_CACHE = [
   "./style.css",
   "./translation.js",
   "./manifest.json",
-  "./icons/icon-512.png"
+  "./icons/icon-512.png",
+  "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
 ];
 
 // Install Event - Pre-cache all static assets

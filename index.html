@@ -19,6 +19,7 @@
   
   <!-- HTML5 Canvas/jsPDF fallback for PDF downloads -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -80,6 +81,13 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
           </svg>
           <span data-i18n="reports">Reports</span>
+        </button>
+        
+        <button class="nav-link" data-page="expenses">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span data-i18n="expenses">Expenses</span>
         </button>
         
         <button class="nav-link" data-page="customers">
@@ -200,6 +208,45 @@
               <span id="stat-total-products">0</span><span style="color: var(--text-muted); font-weight: normal;">Prod</span>
             </div>
             <div class="stat-subtext">Total active list</div>
+          </div>
+          
+          <div class="card stat-card">
+            <div class="stat-header">
+              <div class="stat-icon" style="background-color: #fee2e2; color: #ef4444;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <span class="stat-title" data-i18n="todayExpenses">Today's Expenses</span>
+            </div>
+            <div id="stat-today-expenses" class="stat-value danger">₹0</div>
+            <div class="stat-subtext">Spent today</div>
+          </div>
+          
+          <div class="card stat-card">
+            <div class="stat-header">
+              <div class="stat-icon" style="background-color: #ffedd5; color: #f97316;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span class="stat-title" data-i18n="monthlyExpenses">Monthly Expenses</span>
+            </div>
+            <div id="stat-monthly-expenses" class="stat-value danger">₹0</div>
+            <div class="stat-subtext">This calendar month</div>
+          </div>
+          
+          <div class="card stat-card stat-card-glow-green" style="background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%); border: 1px solid #bbf7d0;">
+            <div class="stat-header">
+              <div class="stat-icon" style="background-color: #d1fae5; color: #10b981;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                </svg>
+              </div>
+              <span class="stat-title" data-i18n="netProfit">Net Profit</span>
+            </div>
+            <div id="stat-net-profit" class="stat-value success">₹0</div>
+            <div class="stat-subtext">Sales minus Expenses</div>
           </div>
         </div>
         
@@ -506,6 +553,9 @@
                 <option value="monthly" data-i18n="monthlyReport">Monthly Report</option>
                 <option value="product" data-i18n="productSales">Product-wise Sales</option>
                 <option value="history" data-i18n="invoiceHistory">Invoice History</option>
+                <option value="daily_expense" data-i18n="dailyExpenseReport">Daily Expense Report</option>
+                <option value="monthly_expense" data-i18n="monthlyExpenseReport">Monthly Expense Report</option>
+                <option value="category_expense" data-i18n="categoryExpenseReport">Category-wise Expense Report</option>
               </select>
             </div>
           </div>
@@ -561,6 +611,123 @@
               <!-- Populated dynamically -->
             </tbody>
           </table>
+        </div>
+      </section>
+      
+      <!-- ==========================================
+           5.25 DAILY EXPENSE MANAGEMENT PAGE
+           ========================================== -->
+      <section id="expenses-view" class="page-view">
+        <div class="expenses-layout">
+          <!-- Left Column: Add / Edit Expense Form -->
+          <div class="card expenses-form-card">
+            <div class="visual-header" style="margin-bottom: 16px;">
+              <h3 id="expense-form-title" data-i18n="addExpense">Add New Expense</h3>
+            </div>
+            
+            <form id="expense-form" class="standard-form">
+              <input type="hidden" id="expense-id-input">
+              
+              <div class="form-group">
+                <label for="expense-date-input" data-i18n="expenseDate">Expense Date</label>
+                <input type="date" id="expense-date-input" class="form-control" required>
+              </div>
+              
+              <div class="form-group">
+                <label for="expense-category-input" data-i18n="expenseCategory">Category</label>
+                <select id="expense-category-input" class="form-control" required>
+                  <option value="" disabled selected data-i18n="selectCategory">Select Category...</option>
+                  <option value="Rent" data-i18n="rent">Rent</option>
+                  <option value="Electricity" data-i18n="electricity">Electricity</option>
+                  <option value="Salary" data-i18n="salary">Salary</option>
+                  <option value="Transport" data-i18n="transport">Transport</option>
+                  <option value="Fuel" data-i18n="fuel">Fuel</option>
+                  <option value="Internet" data-i18n="internet">Internet</option>
+                  <option value="Maintenance" data-i18n="maintenance">Maintenance</option>
+                  <option value="Other" data-i18n="other">Other</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label for="expense-amount-input" data-i18n="expenseAmount">Amount (₹)</label>
+                <input type="number" id="expense-amount-input" class="form-control" placeholder="0.00" step="any" required>
+              </div>
+              
+              <div class="form-group">
+                <label for="expense-note-input" data-i18n="expenseNote">Note / Description</label>
+                <input type="text" id="expense-note-input" class="form-control" placeholder="Enter remarks...">
+              </div>
+              
+              <div style="display: flex; gap: 8px; margin-top: 16px;">
+                <button type="submit" id="btn-save-expense" class="btn btn-primary" style="flex: 2;" data-i18n="saveExpense">Save Expense</button>
+                <button type="button" id="btn-cancel-expense" class="btn btn-secondary" style="flex: 1; display: none;" data-i18n="cancel">Cancel</button>
+              </div>
+            </form>
+          </div>
+          
+          <!-- Right Column: Expense History Table & Filters -->
+          <div class="card expenses-history-card">
+            <div class="visual-header" style="margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 data-i18n="expenseHistory">Expense History</h3>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">
+                  Total: <strong id="expense-total-tally" style="color: var(--primary); font-size: 1rem;">₹0</strong>
+                </div>
+              </div>
+              
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <select id="expense-range-filter" class="form-control" style="width: 130px; height: 36px; padding: 4px 8px; font-size: 0.85rem;">
+                  <option value="this_week" data-i18n="thisWeek">This Week</option>
+                  <option value="this_month" selected data-i18n="thisMonth">This Month</option>
+                  <option value="all_time" data-i18n="allTime">All Time</option>
+                  <option value="custom" data-i18n="custom">Custom Range</option>
+                </select>
+                
+                <select id="expense-cat-filter" class="form-control" style="width: 140px; height: 36px; padding: 4px 8px; font-size: 0.85rem;">
+                  <option value="all" data-i18n="allExpenses">All Expenses</option>
+                  <option value="Rent" data-i18n="rent">Rent</option>
+                  <option value="Electricity" data-i18n="electricity">Electricity</option>
+                  <option value="Salary" data-i18n="salary">Salary</option>
+                  <option value="Transport" data-i18n="transport">Transport</option>
+                  <option value="Fuel" data-i18n="fuel">Fuel</option>
+                  <option value="Internet" data-i18n="internet">Internet</option>
+                  <option value="Maintenance" data-i18n="maintenance">Maintenance</option>
+                  <option value="Other" data-i18n="other">Other</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- Custom Date Range Filters (Hidden by default) -->
+            <div id="expense-custom-dates" class="form-row-compact" style="display: none; margin-bottom: 12px; gap: 8px; align-items: center; background: var(--bg-default); padding: 8px 12px; border-radius: var(--radius-sm);">
+              <div style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem;">
+                <label data-i18n="from">From:</label>
+                <input type="date" id="expense-from-date" class="form-control" style="width: 120px; height: 30px; font-size: 0.8rem; padding: 2px 6px;">
+              </div>
+              <div style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem;">
+                <label data-i18n="to">To:</label>
+                <input type="date" id="expense-to-date" class="form-control" style="width: 120px; height: 30px; font-size: 0.8rem; padding: 2px 6px;">
+              </div>
+              <button id="btn-apply-expense-custom" class="btn btn-primary btn-sm" style="height: 30px; font-size: 0.75rem; padding: 0 10px;">Apply</button>
+            </div>
+            
+            <!-- Table Container -->
+            <div class="table-container" style="max-height: 450px; overflow-y: auto;">
+              <table class="standard-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;" data-i18n="expenseDate">Expense Date</th>
+                    <th style="width: 25%;" data-i18n="expenseCategory">Category</th>
+                    <th style="width: 20%; text-align: right;" data-i18n="expenseAmount">Amount (₹)</th>
+                    <th style="width: 20%;" data-i18n="expenseNote">Note / Description</th>
+                    <th style="width: 15%; text-align: center;" data-i18n="actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="expenses-table-body">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
       
@@ -1168,6 +1335,15 @@
           <span data-i18n="customers">Customers</span>
         </button>
         
+        <button class="mobile-more-item" data-page="expenses">
+          <div class="mobile-more-icon-wrapper" style="background-color: #fee2e2; color: #ef4444;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <span data-i18n="expenses">Expenses</span>
+        </button>
+        
         <button class="mobile-more-item" data-page="settings">
           <div class="mobile-more-icon-wrapper" style="background-color: #f3e8ff; color: #a855f7;">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
@@ -1264,6 +1440,93 @@
         </div>
         
       </form>
+    </div>
+  <!-- Hidden Dedicated Print Template for 80mm PDF Generation -->
+  <div id="pdf-print-template">
+    <!-- Header -->
+    <div style="margin-bottom: 8px;">
+      <h2 id="pdf-shop-name">Shop Name</h2>
+      <p id="pdf-shop-tagline"></p>
+      <p id="pdf-shop-address"></p>
+      <p id="pdf-shop-phone"></p>
+    </div>
+    
+    <div style="border-bottom: 1px dashed #000; margin: 8px 0;"></div>
+    
+    <!-- Meta details -->
+    <div style="display: flex; flex-direction: column; gap: 3px; font-size: 10px;">
+      <div><strong>Invoice No:</strong> <span id="pdf-invoice-no"></span></div>
+      <div><strong>Date & Time:</strong> <span id="pdf-date-time"></span></div>
+      <div><strong>Customer:</strong> <span id="pdf-customer-name"></span></div>
+      <div id="pdf-customer-phone-row"><strong>Customer Ph:</strong> <span id="pdf-customer-phone"></span></div>
+    </div>
+    
+    <div style="border-bottom: 1px dashed #000; margin: 8px 0;"></div>
+    
+    <!-- Product Table -->
+    <table>
+      <thead>
+        <tr style="border-bottom: 1px dashed #000; font-weight: bold;">
+          <th class="col-item">Item</th>
+          <th class="col-rate">Rate</th>
+          <th class="col-qty">Qty</th>
+          <th class="col-amount">Amount</th>
+        </tr>
+      </thead>
+      <tbody id="pdf-items-body">
+        <!-- Dynamic rows -->
+      </tbody>
+    </table>
+    
+    <div style="border-bottom: 1px dashed #000; margin: 8px 0;"></div>
+    
+    <!-- Totals -->
+    <div style="display: flex; flex-direction: column; gap: 4px; font-size: 10px; font-weight: bold;">
+      <div style="display: flex; justify-content: space-between;">
+        <span>Subtotal:</span>
+        <span id="pdf-subtotal"></span>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span>Discount:</span>
+        <span id="pdf-discount"></span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; border-top: 1px solid #000; padding-top: 4px; margin-top: 2px;">
+        <span>TOTAL:</span>
+        <span id="pdf-total"></span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 2px;">
+        <span>MODE:</span>
+        <span id="pdf-payment-mode"></span>
+      </div>
+    </div>
+    
+    <!-- Udhaar Payment / QR Section -->
+    <div id="pdf-upi-section" style="display: none; border-top: 1px dashed #000; margin-top: 8px; padding-top: 8px;">
+      <div style="text-align: center; font-weight: bold; margin-bottom: 6px; font-size: 11px;">Pending Payment</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+        <!-- Left Side -->
+        <div style="flex: 1; font-size: 9.5px; line-height: 1.3;">
+          <div>Name: <span id="pdf-upi-name"></span></div>
+          <div>Phone: <span id="pdf-upi-phone"></span></div>
+          <div style="word-break: break-all;">UPI ID: <span id="pdf-upi-id"></span></div>
+          <div style="font-weight: bold; margin-top: 2px;">Amount Due: <span id="pdf-upi-due"></span></div>
+        </div>
+        <!-- Right Side -->
+        <div style="text-align: center; width: 75px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px;">
+          <div id="pdf-upi-qr-container">
+            <img id="pdf-upi-qr" alt="UPI QR">
+            <span id="pdf-upi-no-qr" style="font-size: 7px; color: #999; text-align: center; line-height: 1.1; padding: 4px; display: none;">No QR<br>Code</span>
+          </div>
+          <span style="font-size: 8px; font-weight: bold; color: #555;">Scan to Pay</span>
+        </div>
+      </div>
+    </div>
+    
+    <div style="border-bottom: 1px dashed #000; margin: 8px 0;"></div>
+    
+    <!-- Footer -->
+    <div style="text-align: center; font-size: 9.5px; color: #333;" id="pdf-footer-msg">
+      Thank you for shopping! Visit again.
     </div>
   </div>
 

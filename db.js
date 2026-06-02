@@ -102,16 +102,16 @@ class DatabaseEngine {
     this.syncCallback = onSyncReady;
     
     const settingsKey = this.getKey("settings");
-    const productsKey = this.getKey("products");
     
-    // Check if it's a completely new user / device
-    if (!localStorage.getItem(settingsKey) && !localStorage.getItem(productsKey)) {
+    // Check if it's a completely new user / device (onboarding settings not yet completed)
+    if (!localStorage.getItem(settingsKey)) {
       // Initialize as a blank new user/device
       localStorage.setItem(this.getKey("products"), JSON.stringify([]));
       localStorage.setItem(this.getKey("categories"), JSON.stringify([]));
       localStorage.setItem(this.getKey("customers"), JSON.stringify([]));
       localStorage.setItem(this.getKey("invoices"), JSON.stringify([]));
       localStorage.setItem(this.getKey("payments"), JSON.stringify([]));
+      localStorage.setItem(this.getKey("expenses"), JSON.stringify([]));
       
       const blankSettings = {
         profileCompleted: false,
@@ -127,7 +127,8 @@ class DatabaseEngine {
       };
       localStorage.setItem(settingsKey, JSON.stringify(blankSettings));
     } else {
-      // Existing device: if specific keys are missing, initialize to empty arrays to prevent crashes
+      // Existing device safety: if specific keys are missing, initialize to empty arrays to prevent crashes
+      const productsKey = this.getKey("products");
       if (localStorage.getItem(productsKey) === null) {
         localStorage.setItem(productsKey, JSON.stringify([]));
       }
@@ -142,6 +143,9 @@ class DatabaseEngine {
       }
       if (localStorage.getItem(this.getKey("payments")) === null) {
         localStorage.setItem(this.getKey("payments"), JSON.stringify([]));
+      }
+      if (localStorage.getItem(this.getKey("expenses")) === null) {
+        localStorage.setItem(this.getKey("expenses"), JSON.stringify([]));
       }
     }
 
@@ -170,28 +174,26 @@ class DatabaseEngine {
 
   // Pre-load static defaults
   resetToDefaults() {
-    localStorage.setItem(this.getKey("products"), JSON.stringify(DEFAULT_PRODUCTS));
-    localStorage.setItem(this.getKey("categories"), JSON.stringify(DEFAULT_CATEGORIES));
-    localStorage.setItem(this.getKey("customers"), JSON.stringify(DEFAULT_CUSTOMERS));
-    localStorage.setItem(this.getKey("invoices"), JSON.stringify(DEFAULT_INVOICES));
-    localStorage.setItem(this.getKey("payments"), JSON.stringify(DEFAULT_PAYMENTS));
+    localStorage.setItem(this.getKey("products"), JSON.stringify([]));
+    localStorage.setItem(this.getKey("categories"), JSON.stringify([]));
+    localStorage.setItem(this.getKey("customers"), JSON.stringify([]));
+    localStorage.setItem(this.getKey("invoices"), JSON.stringify([]));
+    localStorage.setItem(this.getKey("payments"), JSON.stringify([]));
+    localStorage.setItem(this.getKey("expenses"), JSON.stringify([]));
     
-    // Set default shop profile settings
-    if (!localStorage.getItem(this.getKey("settings"))) {
-      const defaultSettings = {
-        profileCompleted: false,
-        shopName: "Gurbhej Grocery Store",
-        ownerName: "Gurbhej Singh",
-        shopPhone: "",
-        shopAddress: "",
-        shopTagline: "Fresh groceries & trusted service / ਤਾਜ਼ਾ ਰਾਸ਼ਨ, ਭਰੋਸੇਮੰਦ ਸੇਵਾ",
-        upiName: "Gurbhej Singh",
-        upiPhone: "7973679747",
-        upiId: "paytm.s1sd9a3@pty",
-        upiQrImage: ""
-      };
-      localStorage.setItem(this.getKey("settings"), JSON.stringify(defaultSettings));
-    }
+    const blankSettings = {
+      profileCompleted: false,
+      shopName: "",
+      ownerName: "",
+      shopPhone: "",
+      shopAddress: "",
+      shopTagline: "",
+      upiName: "",
+      upiPhone: "",
+      upiId: "",
+      upiQrImage: ""
+    };
+    localStorage.setItem(this.getKey("settings"), JSON.stringify(blankSettings));
   }
 
   // Generic local fetch helpers
@@ -245,6 +247,13 @@ class DatabaseEngine {
       if (!paySnap.empty) {
         const cloudPays = paySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         this.setLocalData("payments", cloudPays);
+      }
+
+      // 5. Sync Expenses
+      const expSnap = await this.db.collection("expenses").get();
+      if (!expSnap.empty) {
+        const cloudExps = expSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        this.setLocalData("expenses", cloudExps);
       }
 
       console.log("Database Sync Completed Successfully!");
@@ -325,6 +334,13 @@ class DatabaseEngine {
       const pays = this.getLocalData("payments");
       for (const item of pays) {
         const docRef = this.db.collection("payments").doc(item.id);
+        batch.set(docRef, item);
+      }
+
+      // Expenses
+      const exps = this.getLocalData("expenses");
+      for (const item of exps) {
+        const docRef = this.db.collection("expenses").doc(item.id);
         batch.set(docRef, item);
       }
 
@@ -567,6 +583,53 @@ class DatabaseEngine {
   }
 
   // ==========================================
+  // EXPENSES APIS (CRUD)
+  // ==========================================
+  getExpenses() {
+    return this.getLocalData("expenses");
+  }
+
+  async saveExpense(expense) {
+    const list = this.getExpenses();
+    if (!expense.id) {
+      expense.id = "exp_" + Date.now();
+    }
+
+    const idx = list.findIndex(e => e.id === expense.id);
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...expense };
+    } else {
+      list.push(expense);
+    }
+
+    this.setLocalData("expenses", list);
+
+    // Sync to Firestore
+    if (this.firebaseActive && this.db) {
+      try {
+        await this.db.collection("expenses").doc(expense.id).set(expense);
+      } catch (e) {
+        console.error("Firestore expense write queued:", e);
+      }
+    }
+    return expense;
+  }
+
+  async deleteExpense(id) {
+    let list = this.getExpenses();
+    list = list.filter(e => e.id !== id);
+    this.setLocalData("expenses", list);
+
+    if (this.firebaseActive && this.db) {
+      try {
+        await this.db.collection("expenses").doc(id).delete();
+      } catch (e) {
+        console.error("Firestore expense delete queued:", e);
+      }
+    }
+  }
+
+  // ==========================================
   // SHOP SETTINGS APIS
   // ==========================================
   getSettings() {
@@ -610,13 +673,14 @@ class DatabaseEngine {
   // ==========================================
   getBackupJSON() {
     const backup = {
-      version: "1.0",
+      version: "1.1",
       timestamp: new Date().toISOString(),
       products: this.getProducts(),
       categories: this.getCategories(),
       customers: this.getCustomers(),
       invoices: this.getInvoices(),
       payments: this.getPayments(),
+      expenses: this.getExpenses(),
       settings: this.getSettings()
     };
     return JSON.stringify(backup, null, 2);
@@ -637,6 +701,7 @@ class DatabaseEngine {
       this.setLocalData("customers", data.customers);
       this.setLocalData("invoices", data.invoices);
       this.setLocalData("payments", data.payments || data.khatabook || []);
+      this.setLocalData("expenses", data.expenses || []);
       if (data.settings) this.saveSettings(data.settings);
 
       // Force push uploaded data to cloud if Firebase is active
@@ -650,13 +715,16 @@ class DatabaseEngine {
       return false;
     }
   }
-
   addSampleProducts() {
     this.setLocalData("products", DEFAULT_PRODUCTS);
     this.setLocalData("categories", DEFAULT_CATEGORIES);
-    this.setLocalData("customers", DEFAULT_CUSTOMERS);
-    this.setLocalData("invoices", DEFAULT_INVOICES);
-    this.setLocalData("payments", DEFAULT_PAYMENTS);
+    
+    // Add sample expenses for playground testing
+    const sampleExpenses = [
+      { id: "exp_sample_1", date: new Date().toISOString().split('T')[0], category: "Transport", amount: 200, note: "Delivery van fuel charges" },
+      { id: "exp_sample_2", date: new Date().toISOString().split('T')[0], category: "Electricity", amount: 850, note: "Electricity bill partial payment" }
+    ];
+    this.setLocalData("expenses", sampleExpenses);
 
     if (this.firebaseActive && this.db) {
       this.uploadLocalDataToCloud();
@@ -669,6 +737,7 @@ class DatabaseEngine {
     this.setLocalData("customers", []);
     this.setLocalData("invoices", []);
     this.setLocalData("payments", []);
+    this.setLocalData("expenses", []);
 
     if (this.firebaseActive && this.db) {
       this.uploadLocalDataToCloud();

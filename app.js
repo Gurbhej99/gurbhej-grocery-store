@@ -210,7 +210,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   if (sessionStorage.getItem("pwa_reset_success") === "true") {
     sessionStorage.removeItem("pwa_reset_success");
-    showToast("Local database wiped & restored to default samples!", "success");
+    showToast("Local database wiped & cleanly reset!", "success");
   }
 
   // Register PWA Service Worker for offline support
@@ -324,6 +324,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupReportsEventListeners();
   setupSettingsEventListeners();
   setupCustomersEventListeners();
+  setupExpensesEventListeners();
   setupProfileSetupEventListeners();
 
   // Draw initial page
@@ -358,7 +359,7 @@ function switchPage(pageId) {
   // Highlight 'More' button if active page is inside its popover drawer
   const moreBtn = document.getElementById("mobile-nav-more-btn");
   if (moreBtn) {
-    if (["categories", "khatabook", "settings", "customers"].includes(pageId)) {
+    if (["categories", "khatabook", "settings", "customers", "expenses"].includes(pageId)) {
       moreBtn.classList.add("active");
     } else {
       moreBtn.classList.remove("active");
@@ -389,7 +390,8 @@ function switchPage(pageId) {
     khatabook: "Udhaar Ledger Tracker & GPay Payment Receipts",
     reports: "Interactive Daily/Monthly Sales Analytical Statements",
     settings: "Shop Information Details & Firebase Real-time Sync",
-    customers: "CRM Customer Profile Database & Statistics"
+    customers: "CRM Customer Profile Database & Statistics",
+    expenses: "Daily Expenses Tracker, Form CRUD Actions & Profit Analytics"
   };
   subtitleEl.textContent = subtitles[pageId];
 
@@ -422,6 +424,9 @@ function renderActivePage() {
       break;
     case "customers":
       renderCustomers();
+      break;
+    case "expenses":
+      renderExpenses();
       break;
   }
 }
@@ -476,15 +481,21 @@ function renderDashboard() {
   const invoices = DB.getInvoices();
   const customers = DB.getCustomers();
   const products = DB.getProducts();
+  const expenses = DB.getExpenses();
 
-  // Get current date string in GRCh38 local (YYYY-MM-DD)
+  // Get current date string in YYYY-MM-DD
   const todayStr = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
   // Calculate Metrics
   let todaySales = 0;
   let cashSales = 0;
   let creditSales = 0;
   let pendingUdhaar = 0;
+  let todayExpenses = 0;
+  let monthlyExpenses = 0;
 
   // Filter invoices for today
   const todayInvs = invoices.filter(inv => inv.date === todayStr);
@@ -502,6 +513,25 @@ function renderDashboard() {
     pendingUdhaar += c.pendingBalance || 0;
   });
 
+  // Tally expenses for today and current month
+  expenses.forEach(e => {
+    const eDate = new Date(e.date);
+    const amount = parseFloat(e.amount || 0);
+    
+    if (e.date === todayStr) {
+      todayExpenses += amount;
+    }
+    
+    if (eDate.getMonth() === currentMonth && eDate.getFullYear() === currentYear) {
+      monthlyExpenses += amount;
+    }
+  });
+
+  // Calculate Net Profit (Total Sales - Total Expenses)
+  const totalSales = invoices.reduce((sum, inv) => sum + inv.total, 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+  const netProfit = totalSales - totalExpenses;
+
   // Render values to DOM
   document.getElementById("stat-today-sales").textContent = `₹${todaySales.toLocaleString("en-IN")}`;
   document.getElementById("stat-cash-sales").textContent = `₹${cashSales.toLocaleString("en-IN")}`;
@@ -509,6 +539,22 @@ function renderDashboard() {
   document.getElementById("stat-pending-udhaar").textContent = `₹${pendingUdhaar.toLocaleString("en-IN")}`;
   document.getElementById("stat-total-customers").textContent = customers.length;
   document.getElementById("stat-total-products").textContent = products.length;
+
+  const todayExpEl = document.getElementById("stat-today-expenses");
+  if (todayExpEl) todayExpEl.textContent = `₹${todayExpenses.toLocaleString("en-IN")}`;
+
+  const monthlyExpEl = document.getElementById("stat-monthly-expenses");
+  if (monthlyExpEl) monthlyExpEl.textContent = `₹${monthlyExpenses.toLocaleString("en-IN")}`;
+
+  const netProfitEl = document.getElementById("stat-net-profit");
+  if (netProfitEl) {
+    netProfitEl.textContent = `₹${netProfit.toLocaleString("en-IN")}`;
+    if (netProfit < 0) {
+      netProfitEl.className = "stat-value danger";
+    } else {
+      netProfitEl.className = "stat-value success";
+    }
+  }
 
   // Draw pure SVG Charts
   drawWeeklySalesChart(invoices);
@@ -1450,178 +1496,133 @@ function getEnglishName(name) {
   return clean.trim();
 }
 
-function generatePDFDocument() {
+async function generatePDFDocument() {
   const invoice = state.currentInvoice;
   if (!invoice) return null;
 
   const { jsPDF } = window.jspdf;
   if (!jsPDF) return null;
-
-  // Monospace font styling at 8px size: 40 characters wide fits standard thermal width perfectly.
-  // Dynamic page height based on item counts:
-  const isUdhaar = invoice.paymentMode === "udhaar";
-  const settings = DB.getSettings();
-  const hasQr = !!settings.upiQrImage;
-  
-  const itemHeight = 4.5;
-  let baseHeight = invoice.customerPhone ? 119 : 115;
-  if (isUdhaar) {
-    baseHeight += 30; // Compact side-by-side layout takes only 30mm extra height!
+  if (!window.html2canvas) {
+    console.error("html2canvas is not loaded.");
+    return null;
   }
-  const pageHeight = baseHeight + (invoice.items.length * itemHeight);
-  
-  const doc = new jsPDF({
-    unit: "mm",
-    format: [80, pageHeight]
-  });
 
+  // 1. Populate the dedicated print template
   const shop = getShopProfile();
+  const settings = DB.getSettings();
 
-  doc.setFont("courier", "bold");
-  doc.setFontSize(10);
-  doc.text(shop.shopName, 40, 10, { align: "center" });
+  document.getElementById("pdf-shop-name").textContent = shop.shopName;
+  document.getElementById("pdf-shop-tagline").textContent = shop.shopTagline || "";
+  document.getElementById("pdf-shop-address").textContent = shop.shopAddress || "";
+  document.getElementById("pdf-shop-phone").textContent = shop.shopPhone ? `Phone: ${shop.shopPhone}` : "";
 
-  doc.setFont("courier", "normal");
-  doc.setFontSize(8);
-  
-  let headerY = 15;
-  if (shop.shopTagline) {
-    doc.text(shop.shopTagline, 40, headerY, { align: "center" });
-    headerY += 4;
-  }
-  doc.text(shop.shopAddress, 40, headerY, { align: "center" });
-  headerY += 4;
-  doc.text(shop.shopPhone ? `Phone: ${shop.shopPhone}` : "", 40, headerY, { align: "center" });
+  document.getElementById("pdf-invoice-no").textContent = invoice.invoiceNo;
+  document.getElementById("pdf-date-time").textContent = `${invoice.date} ${invoice.time}`;
+  document.getElementById("pdf-customer-name").textContent = invoice.customerName;
 
-  doc.text("----------------------------------------", 40, 27, { align: "center" });
-  
-  doc.text(`Invoice No : ${invoice.invoiceNo}`, 8, 32);
-  doc.text(`Date & Time: ${invoice.date} ${invoice.time}`, 8, 36);
-  
-  const cleanCustomerName = getEnglishName(invoice.customerName).substring(0, 25);
-  doc.text(`Customer   : ${cleanCustomerName}`, 8, 40);
-
-  let headerOffset = 44;
+  const phoneRow = document.getElementById("pdf-customer-phone-row");
   if (invoice.customerPhone) {
-    doc.text(`Customer Ph: ${invoice.customerPhone}`, 8, 44);
-    headerOffset = 48;
+    document.getElementById("pdf-customer-phone").textContent = invoice.customerPhone;
+    phoneRow.style.display = "block";
+  } else {
+    phoneRow.style.display = "none";
   }
 
-  doc.text("----------------------------------------", 40, headerOffset, { align: "center" });
-
-  // Monospace Table Header
-  // Item (20 chars) | Rate (9 chars) | Qty (5 chars) | Amount = 40 chars total
-  const headerLine = padEnd("Item", 20) + padEnd("Rate", 9) + padEnd("Qty", 5) + "Amount";
-  doc.setFont("courier", "bold");
-  doc.text(headerLine, 8, headerOffset + 5);
-  
-  doc.text("----------------------------------------", 40, headerOffset + 9, { align: "center" });
-  doc.setFont("courier", "normal");
-
-  let y = headerOffset + 14;
+  // Populate products table
+  const tbody = document.getElementById("pdf-items-body");
+  tbody.innerHTML = "";
   invoice.items.forEach(item => {
-    const rawName = item.name || "";
-    const cleanEnglishName = getEnglishName(rawName);
+    const tr = document.createElement("tr");
+    tr.style.borderBottom = "1px solid #f5f5f5";
     
+    const pName = formatProductName(item);
     const rateVal = parseFloat(item.rate);
-    const rateText = "Rs." + (rateVal % 1 === 0 ? rateVal.toFixed(0) : rateVal.toFixed(2));
-    
-    const qtyText = `${item.qty}`;
-    
+    const qtyVal = parseFloat(item.qty);
     const amountVal = parseFloat(item.amount);
-    const amountText = "Rs." + (amountVal % 1 === 0 ? amountVal.toFixed(0) : amountVal.toFixed(2));
 
-    const rowLine = padEnd(cleanEnglishName, 20) + padEnd(rateText, 9) + padEnd(qtyText, 5) + amountText;
-    doc.text(rowLine, 8, y);
-    y += itemHeight;
+    tr.innerHTML = `
+      <td class="col-item">${pName}</td>
+      <td class="col-rate">Rs.${rateVal % 1 === 0 ? rateVal.toFixed(0) : rateVal.toFixed(2)}</td>
+      <td class="col-qty">${qtyVal}</td>
+      <td class="col-amount" style="font-weight: bold;">Rs.${amountVal % 1 === 0 ? amountVal.toFixed(0) : amountVal.toFixed(2)}</td>
+    `;
+    tbody.appendChild(tr);
   });
 
-  doc.text("----------------------------------------", 40, y, { align: "center" });
-  y += 4;
-
+  // Totals
   const subtotalVal = parseFloat(invoice.subtotal);
-  const subtotalText = "Rs." + (subtotalVal % 1 === 0 ? subtotalVal.toFixed(0) : subtotalVal.toFixed(2));
-  const subtotalLine = padEnd("Subtotal", 40 - subtotalText.length) + subtotalText;
-  doc.text(subtotalLine, 8, y);
-  y += 4;
-
+  document.getElementById("pdf-subtotal").textContent = `Rs.${subtotalVal % 1 === 0 ? subtotalVal.toFixed(0) : subtotalVal.toFixed(2)}`;
+  
   const discountVal = parseFloat(invoice.discount);
-  const discountText = "Rs." + (discountVal % 1 === 0 ? discountVal.toFixed(0) : discountVal.toFixed(2));
-  const discountLine = padEnd("Discount", 40 - discountText.length) + discountText;
-  doc.text(discountLine, 8, y);
-  y += 4;
+  document.getElementById("pdf-discount").textContent = `Rs.${discountVal % 1 === 0 ? discountVal.toFixed(0) : discountVal.toFixed(2)}`;
   
-  doc.setFont("courier", "bold");
   const totalVal = parseFloat(invoice.total);
-  const totalText = "Rs." + (totalVal % 1 === 0 ? totalVal.toFixed(0) : totalVal.toFixed(2));
-  const totalLine = padEnd("TOTAL", 40 - totalText.length) + totalText;
-  doc.text(totalLine, 8, y);
-  y += 5;
-  
-  const modeText = invoice.paymentMode.toUpperCase();
-  const modeLine = padEnd("MODE", 40 - modeText.length) + modeText;
-  doc.text(modeLine, 8, y);
-  y += 6;
+  document.getElementById("pdf-total").textContent = `Rs.${totalVal % 1 === 0 ? totalVal.toFixed(0) : totalVal.toFixed(2)}`;
+  document.getElementById("pdf-payment-mode").textContent = invoice.paymentMode.toUpperCase();
 
+  // Udhaar QR Section
+  const upiSection = document.getElementById("pdf-upi-section");
+  const isUdhaar = invoice.paymentMode === "udhaar";
   if (isUdhaar) {
-    y += 2;
-    doc.text("----------------------------------------", 40, y, { align: "center" });
-    y += 4;
+    document.getElementById("pdf-upi-name").textContent = settings.upiName || "Gurbhej Singh";
+    document.getElementById("pdf-upi-phone").textContent = settings.upiPhone || "7973679747";
+    document.getElementById("pdf-upi-id").textContent = settings.upiId || "paytm.s1sd9a3@pty";
+    document.getElementById("pdf-upi-due").textContent = `Rs.${totalVal % 1 === 0 ? totalVal.toFixed(0) : totalVal.toFixed(2)}`;
 
-    doc.setFont("courier", "bold");
-    doc.text("Pending Payment", 40, y, { align: "center" });
-    const startY = y + 5;
-
-    const upiName = settings.upiName || "Gurbhej Singh";
-    const upiPhone = settings.upiPhone || "7973679747";
-    const upiId = settings.upiId || "paytm.s1sd9a3@pty";
-
-    // Left side: UPI details
-    doc.setFont("courier", "normal");
-    doc.text(`Name : ${upiName}`, 8, startY);
-    doc.text(`Phone: ${upiPhone}`, 8, startY + 4);
-    doc.text(`UPIID: ${upiId}`, 8, startY + 8);
-    
-    doc.setFont("courier", "bold");
-    doc.text(`Due  : Rs.${totalVal.toFixed(2)}`, 8, startY + 13);
-    
-    // Right side: QR Image (18.52mm x 18.52mm = 70px x 70px)
+    const qrImg = document.getElementById("pdf-upi-qr");
+    const noQrSpan = document.getElementById("pdf-upi-no-qr");
     if (settings.upiQrImage) {
-      try {
-        doc.addImage(settings.upiQrImage, "PNG", 52, startY - 2, 18.52, 18.52);
-      } catch (err) {
-        console.error("Error drawing QR image to PDF:", err);
-        doc.setFont("courier", "normal");
-        doc.text("[QR Code]", 61.26, startY + 8, { align: "center" });
+      if (qrImg) {
+        qrImg.src = settings.upiQrImage;
+        qrImg.style.display = "block";
       }
+      if (noQrSpan) noQrSpan.style.display = "none";
     } else {
-      doc.rect(52, startY - 2, 18.52, 18.52);
-      doc.setFont("courier", "normal");
-      doc.setFontSize(6);
-      doc.text("No QR Code", 61.26, startY + 5, { align: "center" });
-      doc.text("Uploaded", 61.26, startY + 10, { align: "center" });
-      doc.setFontSize(8);
+      if (qrImg) qrImg.style.display = "none";
+      if (noQrSpan) noQrSpan.style.display = "block";
     }
-    
-    doc.setFont("courier", "bold");
-    doc.text("Scan to Pay", 61.26, startY + 22, { align: "center" });
-    
-    // Clear both columns
-    y = startY + 25;
-    doc.setFont("courier", "normal");
-    doc.text("----------------------------------------", 40, y, { align: "center" });
-    y += 5;
+    upiSection.style.display = "block";
+  } else {
+    upiSection.style.display = "none";
   }
 
-  doc.setFont("courier", "normal");
-  doc.text("Thank you for shopping! Visit again.", 40, y, { align: "center" });
+  // 2. Render print container using html2canvas
+  const element = document.getElementById("pdf-print-template");
+  
+  try {
+    const canvas = await html2canvas(element, {
+      scale: 2, // 2x scale for highly sharp, professional high-DPI prints
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: "#ffffff",
+      logging: false
+    });
 
-  return { doc, filename: `Invoice_${invoice.invoiceNo}.pdf` };
+    const imgData = canvas.toDataURL("image/png");
+    
+    // Receipt width is fixed to exactly 80mm
+    const pdfWidth = 80;
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    const doc = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: [pdfWidth, pdfHeight]
+    });
+
+    doc.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight, undefined, "FAST");
+
+    return { doc, filename: `Invoice_${invoice.invoiceNo}.pdf` };
+  } catch (err) {
+    console.error("html2canvas PDF generation failed:", err);
+    return null;
+  }
 }
 
 // Download PDF Invoice
-function downloadInvoicePDF() {
-  const result = generatePDFDocument();
+async function downloadInvoicePDF() {
+  showToast("Generating PDF Invoice...", "info");
+  const result = await generatePDFDocument();
   if (result) {
     result.doc.save(result.filename);
     showToast("PDF Invoice downloaded!", "success");
@@ -1632,10 +1633,8 @@ function downloadInvoicePDF() {
 
 // Share PDF Invoice
 async function shareInvoicePDF() {
-  const invoice = state.currentInvoice;
-  if (!invoice) return;
-
-  const result = generatePDFDocument();
+  showToast("Preparing PDF for Sharing...", "info");
+  const result = await generatePDFDocument();
   if (!result) {
     showToast("PDF generation failed.", "error");
     return;
@@ -1644,11 +1643,10 @@ async function shareInvoicePDF() {
   try {
     const pdfBlob = result.doc.output("blob");
     const file = new File([pdfBlob], result.filename, { type: "application/pdf" });
-    
+
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
         files: [file],
-        title: `Invoice ${invoice.invoiceNo}`,
         text: `Gurbhej Grocery Store Invoice - ${invoice.invoiceNo}`
       });
       showToast("PDF shared successfully!", "success");
@@ -2786,6 +2784,149 @@ function renderReports() {
 
       tbody.appendChild(tr);
     });
+  } else if (type === "daily_expense") {
+    resTitle.textContent = `${getTranslation("dailyExpenseReport")} (${start} to ${end})`;
+    thead.innerHTML = `
+      <tr>
+        <th style="width: 25%;" data-i18n="expenseDate">Expense Date</th>
+        <th style="width: 25%;" data-i18n="expenseCategory">Category</th>
+        <th style="width: 20%; text-align: right;" data-i18n="expenseAmount">Amount (₹)</th>
+        <th style="width: 30%;" data-i18n="expenseNote">Note / Description</th>
+      </tr>
+    `;
+
+    const rangeExps = DB.getExpenses().filter(e => e.date >= start && e.date <= end);
+    rangeExps.sort((a, b) => {
+      if (state.reportsSortOrder === "desc") {
+        return b.date.localeCompare(a.date);
+      } else {
+        return a.date.localeCompare(b.date);
+      }
+    });
+
+    let totalExps = 0;
+    if (rangeExps.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);" data-i18n="noData">No expenses found</td></tr>`;
+      grandTally.textContent = `Total Expenses: ₹0`;
+      return;
+    }
+
+    rangeExps.forEach(e => {
+      const amountNum = parseFloat(e.amount || 0);
+      totalExps += amountNum;
+      const tr = document.createElement("tr");
+      
+      const categoryKey = e.category.toLowerCase();
+      const categoryTranslated = getTranslation(categoryKey) || e.category;
+
+      tr.innerHTML = `
+        <td>${e.date}</td>
+        <td style="font-weight: 600; color: var(--dark);">${categoryTranslated}</td>
+        <td class="num-cell" style="font-weight: 700; color: var(--danger); text-align: right;">₹${amountNum.toFixed(2)}</td>
+        <td style="color: var(--text-muted);">${e.note || "-"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    grandTally.textContent = `Total Expenses: ₹${totalExps.toLocaleString("en-IN")}`;
+
+  } else if (type === "monthly_expense") {
+    resTitle.textContent = `${getTranslation("monthlyExpenseReport")} (${start} to ${end})`;
+    thead.innerHTML = `
+      <tr>
+        <th style="width: 40%;">Month</th>
+        <th style="width: 30%; text-align: right;">Total Amount (₹)</th>
+        <th style="width: 30%; text-align: center;">Expenses Count</th>
+      </tr>
+    `;
+
+    const rangeExps = DB.getExpenses().filter(e => e.date >= start && e.date <= end);
+    const groups = {};
+    
+    rangeExps.forEach(e => {
+      const eDate = new Date(e.date);
+      const monthName = eDate.toLocaleString("en-US", { month: "long", year: "numeric" });
+      if (!groups[monthName]) {
+        groups[monthName] = { amount: 0, count: 0 };
+      }
+      groups[monthName].amount += parseFloat(e.amount || 0);
+      groups[monthName].count += 1;
+    });
+
+    const sortedGroups = Object.keys(groups).sort((a, b) => new Date(b) - new Date(a));
+    if (state.reportsSortOrder === "asc") {
+      sortedGroups.reverse();
+    }
+
+    let totalExps = 0;
+    if (sortedGroups.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted);" data-i18n="noData">No monthly data available</td></tr>`;
+      grandTally.textContent = `Total Expenses: ₹0`;
+      return;
+    }
+
+    sortedGroups.forEach(month => {
+      const data = groups[month];
+      totalExps += data.amount;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight: 700; color: var(--dark);">${month}</td>
+        <td class="num-cell" style="font-weight: 700; color: var(--danger); text-align: right;">₹${data.amount.toFixed(2)}</td>
+        <td style="text-align: center;">${data.count}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    grandTally.textContent = `Total Expenses: ₹${totalExps.toLocaleString("en-IN")}`;
+
+  } else if (type === "category_expense") {
+    resTitle.textContent = `${getTranslation("categoryExpenseReport")} (${start} to ${end})`;
+    thead.innerHTML = `
+      <tr>
+        <th style="width: 40%;" data-i18n="expenseCategory">Category</th>
+        <th style="width: 30%; text-align: right;" data-i18n="expenseAmount">Total Spent (₹)</th>
+        <th style="width: 30%; text-align: center;">Share (%)</th>
+      </tr>
+    `;
+
+    const rangeExps = DB.getExpenses().filter(e => e.date >= start && e.date <= end);
+    const groups = {};
+    let totalExps = 0;
+
+    rangeExps.forEach(e => {
+      const amount = parseFloat(e.amount || 0);
+      totalExps += amount;
+      if (!groups[e.category]) {
+        groups[e.category] = 0;
+      }
+      groups[e.category] += amount;
+    });
+
+    const sortedCategories = Object.keys(groups).sort((a, b) => groups[b] - groups[a]);
+    if (state.reportsSortOrder === "asc") {
+      sortedCategories.reverse();
+    }
+
+    if (sortedCategories.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted);" data-i18n="noData">No category data available</td></tr>`;
+      grandTally.textContent = `Total Expenses: ₹0`;
+      return;
+    }
+
+    sortedCategories.forEach(cat => {
+      const amount = groups[cat];
+      const pct = totalExps > 0 ? (amount / totalExps) * 100 : 0;
+      const tr = document.createElement("tr");
+
+      const categoryKey = cat.toLowerCase();
+      const categoryTranslated = getTranslation(categoryKey) || cat;
+
+      tr.innerHTML = `
+        <td style="font-weight: 700; color: var(--dark);">${categoryTranslated}</td>
+        <td class="num-cell" style="font-weight: 700; color: var(--danger); text-align: right;">₹${amount.toFixed(2)}</td>
+        <td style="text-align: center; font-weight: 600; color: var(--text-muted);">${pct.toFixed(1)}%</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    grandTally.textContent = `Total Expenses: ₹${totalExps.toLocaleString("en-IN")}`;
   }
 
   // Set localizations triggers
@@ -2794,7 +2935,9 @@ function renderReports() {
     el.textContent = getTranslation(key);
   });
 
-  grandTally.textContent = `Total Sales: ₹${totalSales.toLocaleString("en-IN")}`;
+  if (!["daily_expense", "monthly_expense", "category_expense"].includes(type)) {
+    grandTally.textContent = `Total Sales: ₹${totalSales.toLocaleString("en-IN")}`;
+  }
 }
 
 // ==========================================
@@ -3195,6 +3338,228 @@ function setupCustomersEventListeners() {
       renderCustomers();
     });
   }
+}
+
+// ==========================================
+// EXPENSE MANAGEMENT SYSTEM (CRUD & FILTERS)
+// ==========================================
+function renderExpenses() {
+  const expenses = DB.getExpenses();
+  const rangeFilter = document.getElementById("expense-range-filter")?.value || "this_month";
+  const catFilter = document.getElementById("expense-cat-filter")?.value || "all";
+  
+  // Apply Date Range Filter
+  let filtered = expenses;
+  const now = new Date();
+  
+  if (rangeFilter === "this_week") {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    filtered = filtered.filter(e => {
+      const eDate = new Date(e.date);
+      return eDate >= sevenDaysAgo && eDate <= now;
+    });
+  } else if (rangeFilter === "this_month") {
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    filtered = filtered.filter(e => {
+      const eDate = new Date(e.date);
+      return eDate.getMonth() === currentMonth && eDate.getFullYear() === currentYear;
+    });
+  } else if (rangeFilter === "custom") {
+    const fromStr = document.getElementById("expense-from-date")?.value;
+    const toStr = document.getElementById("expense-to-date")?.value;
+    if (fromStr && toStr) {
+      const fromDate = new Date(fromStr);
+      const toDate = new Date(toStr);
+      toDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(e => {
+        const eDate = new Date(e.date);
+        return eDate >= fromDate && eDate <= toDate;
+      });
+    }
+  }
+  
+  // Apply Category Filter
+  if (catFilter !== "all") {
+    filtered = filtered.filter(e => e.category === catFilter);
+  }
+  
+  // Sort by newest date first
+  filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  // Calculate Total Tally
+  const totalVal = filtered.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+  const tallyEl = document.getElementById("expense-total-tally");
+  if (tallyEl) {
+    tallyEl.textContent = `₹${totalVal % 1 === 0 ? totalVal.toFixed(0) : totalVal.toFixed(2)}`;
+  }
+  
+  // Populate Table
+  const tbody = document.getElementById("expenses-table-body");
+  if (tbody) {
+    tbody.innerHTML = "";
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;" data-i18n="noData">No expenses found.</td></tr>`;
+      translateElement(tbody);
+    } else {
+      filtered.forEach(exp => {
+        const tr = document.createElement("tr");
+        const amountNum = parseFloat(exp.amount || 0);
+        
+        // Translate category if possible
+        const categoryKey = exp.category.toLowerCase();
+        const categoryTranslated = getTranslation(categoryKey) || exp.category;
+        
+        tr.innerHTML = `
+          <td>${exp.date}</td>
+          <td style="font-weight: 600; color: var(--dark);">${categoryTranslated}</td>
+          <td style="text-align: right; font-weight: bold; color: var(--danger);">₹${amountNum % 1 === 0 ? amountNum.toFixed(0) : amountNum.toFixed(2)}</td>
+          <td style="color: var(--text-muted); font-size: 0.95rem;">${exp.note || "-"}</td>
+          <td style="text-align: center;">
+            <div style="display: flex; gap: 6px; justify-content: center;">
+              <button class="btn btn-secondary btn-sm edit-exp-btn" data-id="${exp.id}" style="padding: 4px 8px; font-size: 0.75rem;" data-i18n="edit">Edit</button>
+              <button class="btn btn-danger btn-sm delete-exp-btn" data-id="${exp.id}" style="padding: 4px 8px; font-size: 0.75rem;" data-i18n="delete">Delete</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      
+      // Bind Edit/Delete buttons dynamically
+      tbody.querySelectorAll(".edit-exp-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const id = e.target.dataset.id;
+          editExpenseInline(id);
+        });
+      });
+      
+      tbody.querySelectorAll(".delete-exp-btn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const id = e.target.dataset.id;
+          if (confirm("Are you sure you want to delete this expense?")) {
+            await DB.deleteExpense(id);
+            showToast("Expense deleted successfully!", "success");
+            renderExpenses();
+            renderDashboard();
+          }
+        });
+      });
+      
+      // Translate elements
+      translateElement(tbody);
+    }
+  }
+}
+
+function editExpenseInline(id) {
+  const expenses = DB.getExpenses();
+  const exp = expenses.find(e => e.id === id);
+  if (!exp) return;
+  
+  document.getElementById("expense-id-input").value = exp.id;
+  document.getElementById("expense-date-input").value = exp.date;
+  document.getElementById("expense-category-input").value = exp.category;
+  document.getElementById("expense-amount-input").value = exp.amount;
+  document.getElementById("expense-note-input").value = exp.note || "";
+  
+  // Update header title to Edit
+  document.getElementById("expense-form-title").textContent = getTranslation("editExpense");
+  document.getElementById("btn-cancel-expense").style.display = "inline-block";
+  document.getElementById("btn-save-expense").textContent = getTranslation("save");
+}
+
+function setupExpensesEventListeners() {
+  const form = document.getElementById("expense-form");
+  const cancelBtn = document.getElementById("btn-cancel-expense");
+  const rangeFilter = document.getElementById("expense-range-filter");
+  const catFilter = document.getElementById("expense-cat-filter");
+  const customApply = document.getElementById("btn-apply-expense-custom");
+  
+  // Set default date to today
+  const dateInput = document.getElementById("expense-date-input");
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+  
+  if (form) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const id = document.getElementById("expense-id-input").value;
+      const date = document.getElementById("expense-date-input").value;
+      const category = document.getElementById("expense-category-input").value;
+      const amount = parseFloat(document.getElementById("expense-amount-input").value);
+      const note = document.getElementById("expense-note-input").value.trim();
+      
+      if (!date || !category || isNaN(amount) || amount <= 0) {
+        showToast("Please enter valid expense details.", "error");
+        return;
+      }
+      
+      const expenseObj = {
+        date,
+        category,
+        amount,
+        note
+      };
+      
+      if (id) {
+        expenseObj.id = id;
+      }
+      
+      await DB.saveExpense(expenseObj);
+      showToast(id ? "Expense updated successfully!" : "Expense recorded successfully!", "success");
+      
+      // Reset Form
+      resetExpenseForm();
+      renderExpenses();
+      renderDashboard();
+    });
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      resetExpenseForm();
+    });
+  }
+  
+  if (rangeFilter) {
+    rangeFilter.addEventListener("change", (e) => {
+      const customDates = document.getElementById("expense-custom-dates");
+      if (e.target.value === "custom") {
+        if (customDates) customDates.style.display = "flex";
+      } else {
+        if (customDates) customDates.style.display = "none";
+        renderExpenses();
+      }
+    });
+  }
+  
+  if (catFilter) {
+    catFilter.addEventListener("change", () => {
+      renderExpenses();
+    });
+  }
+  
+  if (customApply) {
+    customApply.addEventListener("click", () => {
+      renderExpenses();
+    });
+  }
+}
+
+function resetExpenseForm() {
+  const form = document.getElementById("expense-form");
+  if (form) form.reset();
+  document.getElementById("expense-id-input").value = "";
+  const dateInput = document.getElementById("expense-date-input");
+  if (dateInput) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+  document.getElementById("expense-form-title").textContent = getTranslation("addExpense");
+  document.getElementById("btn-cancel-expense").style.display = "none";
+  document.getElementById("btn-save-expense").textContent = getTranslation("saveExpense");
 }
 
 // ==========================================
