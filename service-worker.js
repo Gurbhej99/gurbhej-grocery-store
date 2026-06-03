@@ -1,4 +1,4 @@
-const CACHE_NAME = "gurbhej-store-cache-v4"; // Incremented version to refresh client caches
+const CACHE_NAME = "gurbhej-store-cache-v16"; // Incremented version to refresh client caches
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",

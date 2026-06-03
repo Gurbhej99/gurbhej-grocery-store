@@ -732,7 +732,7 @@ header {
 
 .quick-picks-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
@@ -1643,20 +1643,52 @@ body.modal-open {
    AUTHENTIC MEDIA PRINT RECEIPTS (INVOICES)
    ========================================== */
 @media print {
-  /* Hide all elements on page */
-  body * {
-    visibility: hidden;
+  @page {
+    size: 80mm auto;
+    margin: 0;
   }
 
-  /* Show ONLY the invoice paper and center it */
-  .invoice-paper-wrapper, .invoice-paper-wrapper * {
-    visibility: visible;
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 80mm !important;
+    height: auto !important;
+    overflow: visible !important;
+    background-color: #ffffff !important;
+  }
+
+  body > *:not(#invoice-slip) {
+    display: none !important;
+  }
+
+  #invoice-slip {
+    display: block !important;
+    position: static !important;
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
+    break-before: avoid !important;
+    break-after: avoid !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .invoice-modal-container {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .invoice-paper-wrapper {
-    position: absolute;
-    left: 0;
-    top: 0;
     width: 100% !important;
     border: none !important;
     box-shadow: none !important;
@@ -1664,16 +1696,14 @@ body.modal-open {
     margin: 0 !important;
   }
 
-  /* Hide modals overlay effects, buttons and shadows */
-  .modal-overlay, .invoice-modal-container {
-    background: transparent !important;
-    backdrop-filter: none !important;
-    box-shadow: none !important;
-    border: none !important;
-    position: static !important;
-  }
-
-  .modal-header, .modal-footer, .invoice-action-controls {
+  .modal-header,
+  .modal-footer,
+  .invoice-action-controls,
+  .invoice-actions,
+  button,
+  .bottom-nav,
+  aside,
+  nav {
     display: none !important;
   }
 }
@@ -1971,7 +2001,7 @@ body.modal-open {
 
   /* Fluid columns for Quick Picks */
   .quick-picks-grid {
-    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)) !important;
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
     height: auto !important;
   }
@@ -2680,16 +2710,23 @@ body.modal-open {
 
 /* Responsive UPI QR Image Sizing */
 .invoice-upi-qr-img {
-  width: 90px !important;
-  height: 90px !important;
-  object-fit: contain;
+  width: 120px !important;
+  height: 120px !important;
+  max-width: 120px !important;
+  max-height: 120px !important;
+  object-fit: contain !important;
+  display: block;
   margin: 0 auto;
 }
 
 @media print {
   .invoice-upi-qr-img {
-    width: 65px !important;
-    height: 65px !important;
+    width: 120px !important;
+    height: 120px !important;
+    max-width: 120px !important;
+    max-height: 120px !important;
+    object-fit: contain !important;
+    display: block;
   }
 }
 
@@ -2704,18 +2741,20 @@ body.modal-open {
 }
 
 .upi-compact-left {
-  flex: 1;
+  flex: 0 0 60%;
+  width: 60%;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
 .upi-compact-right {
+  flex: 0 0 40%;
+  width: 40%;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: 4px;
-  min-width: 90px;
 }
 
 /* ==========================================================================
@@ -3424,9 +3463,8 @@ body.setup-active #profile-setup-overlay {
 }
 
 body.setup-active #app-container,
-body.setup-active .modal-overlay,
-body.setup-active #pdf-print-template,
-body.setup-active #toast-notification {
+body.setup-active .modal-overlay:not(#modal-crop-qr),
+body.setup-active #pdf-print-template {
   display: none !important;
 }
 

@@ -196,7 +196,9 @@ const state = {
   selectedKhatabookCustomerId: "",
   currentInvoice: null, // Holds the invoice currently in the modal viewer
   reportsSortOrder: "desc", // Default newest first
-  firebaseEnabled: false
+  firebaseEnabled: false,
+  selectedCategory: null,
+  upiQrBase64: ""
 };
 
 // ==========================================
@@ -907,6 +909,10 @@ function setupBillingEventListeners() {
 
     const products = DB.getProducts();
     const matches = products.filter(p => {
+      // If a category is selected in Quick Picks, search only inside that category
+      if (state.selectedCategory && p.category.toLowerCase() !== state.selectedCategory.toLowerCase()) {
+        return false;
+      }
       const nameHi = p.nameHi || transliterateText(p.name, "hi");
       const namePa = p.namePa || transliterateText(p.name, "pa");
       return p.name.toLowerCase().includes(query) || 
@@ -937,10 +943,8 @@ function setupBillingEventListeners() {
   // PWA Contact Picker API check & listener
   const selectContactBtn = document.getElementById("btn-select-contact");
   if (selectContactBtn) {
-    if ('contacts' in navigator && 'ContactsManager' in window) {
-      selectContactBtn.style.display = "inline-block";
-      
-      selectContactBtn.addEventListener("click", async () => {
+    selectContactBtn.addEventListener("click", async () => {
+      if ('contacts' in navigator && 'ContactsManager' in window) {
         try {
           const props = ['name', 'tel'];
           const opts = { multiple: false };
@@ -973,8 +977,11 @@ function setupBillingEventListeners() {
           console.error("Contact selection failed:", err);
           showToast("Contact access cancelled / denied.", "info");
         }
-      });
-    }
+      } else {
+        showToast("Contact picker is not supported on this device/browser. Please enter phone manually.", "error");
+        alert("Contact picker is not supported on this device/browser. Please enter phone manually.");
+      }
+    });
   }
   
   if (phoneInput && nameInput) {
@@ -991,6 +998,8 @@ function setupBillingEventListeners() {
         const found = customers.find(c => c.phone === phoneVal);
         
         if (found) {
+          found.balance = found.pendingBalance || 0;
+          found.previousBalance = found.pendingBalance || 0;
           nameInput.value = found.name;
           state.selectedBillingCustomerId = found.id;
           
@@ -1014,6 +1023,15 @@ function setupBillingEventListeners() {
         state.selectedBillingCustomerId = "";
       }
       updateBillingPreviousBalanceUI();
+    });
+  }
+
+  // Back to categories button click handler
+  const backToCategoriesBtn = document.getElementById("btn-back-to-categories");
+  if (backToCategoriesBtn) {
+    backToCategoriesBtn.addEventListener("click", () => {
+      state.selectedCategory = null;
+      renderQuickPicks();
     });
   }
 
@@ -1146,28 +1164,91 @@ function renderQuickPicks() {
   if (!grid) return;
   grid.innerHTML = "";
 
+  const breadcrumb = document.getElementById("quick-picks-breadcrumb");
+  const backBtn = document.getElementById("btn-back-to-categories");
+
+  const categories = DB.getCategories();
   const products = DB.getProducts();
-  
-  // Pick first 8 products as Quick select items
-  const quickItems = products.slice(0, 8);
 
-  if (quickItems.length === 0) {
-    grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.85rem;">No products in inventory. Add products in settings!</div>`;
-    return;
-  }
+  // Debug requirements
+  console.log("categories:", categories);
+  console.log("products:", products);
 
-  quickItems.forEach(prod => {
-    const btn = document.createElement("button");
-    btn.className = "quick-pick-btn";
-    btn.innerHTML = `
-      <span class="quick-pick-name">${prod.name.split(" (")[0]}</span>
-      <span class="quick-pick-rate">₹${prod.rate}/${prod.unit}</span>
-    `;
-    btn.addEventListener("click", () => {
-      addProductToCart(prod);
+  if (!state.selectedCategory) {
+    // Render Category Cards
+    if (breadcrumb) breadcrumb.textContent = "Quick Pick Categories";
+    if (backBtn) backBtn.style.display = "none";
+
+    // Obtain all categories from DB, and append any unique categories from products just in case
+    const productCategories = [...new Set(products.map(p => p.category).filter(Boolean))];
+    const categoryMap = new Map();
+    categories.forEach(cat => categoryMap.set(cat.name.toLowerCase(), cat));
+
+    const allCategories = [...categories];
+    productCategories.forEach(catName => {
+      if (!categoryMap.has(catName.toLowerCase())) {
+        const newCat = { id: "cat_custom_" + catName.toLowerCase().replace(/\s+/g, "_"), name: catName };
+        allCategories.push(newCat);
+        categoryMap.set(catName.toLowerCase(), newCat);
+      }
     });
-    grid.appendChild(btn);
-  });
+
+    if (allCategories.length === 0) {
+      grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.85rem;">No categories available.</div>`;
+      return;
+    }
+
+    allCategories.forEach(cat => {
+      const btn = document.createElement("button");
+      btn.className = "quick-pick-btn";
+      
+      const displayName = state.activeLang === "pa" ? (cat.namePa || cat.name) : (state.activeLang === "hi" ? (cat.nameHi || cat.name) : cat.name);
+      
+      btn.innerHTML = `
+        <span class="quick-pick-name">${displayName}</span>
+        <span class="quick-pick-rate" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">View Items</span>
+      `;
+      btn.addEventListener("click", () => {
+        state.selectedCategory = cat.name;
+        renderQuickPicks();
+      });
+      grid.appendChild(btn);
+    });
+
+  } else {
+    // Render Products inside selected category
+    if (breadcrumb) {
+      const currentCatObj = categories.find(c => c.name.toLowerCase() === state.selectedCategory.toLowerCase());
+      const catDisplayName = currentCatObj 
+        ? (state.activeLang === "pa" ? (currentCatObj.namePa || currentCatObj.name) : (state.activeLang === "hi" ? (currentCatObj.nameHi || currentCatObj.name) : currentCatObj.name))
+        : state.selectedCategory;
+      breadcrumb.textContent = `| ${catDisplayName}`;
+    }
+    if (backBtn) backBtn.style.display = "inline-block";
+
+    const categoryProducts = products.filter(p => p.category.toLowerCase() === state.selectedCategory.toLowerCase());
+
+    if (categoryProducts.length === 0) {
+      grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--text-muted); font-size: 0.85rem;">No products in this category.</div>`;
+      return;
+    }
+
+    categoryProducts.forEach(prod => {
+      const btn = document.createElement("button");
+      btn.className = "quick-pick-btn";
+      
+      const prodName = state.activeLang === "pa" ? (prod.namePa || prod.name) : (state.activeLang === "hi" ? (prod.nameHi || prod.name) : prod.name);
+      
+      btn.innerHTML = `
+        <span class="quick-pick-name">${prodName.split(" (")[0]}</span>
+        <span class="quick-pick-rate">₹${prod.rate}/${prod.unit}</span>
+      `;
+      btn.addEventListener("click", () => {
+        addProductToCart(prod);
+      });
+      grid.appendChild(btn);
+    });
+  }
 }
 
 function populateBillingCustomerSelector() {
@@ -1193,6 +1274,8 @@ function populateBillingCustomerSelector() {
     state.selectedBillingCustomerId = e.target.value;
     const cust = DB.getCustomers().find(c => c.id === e.target.value);
     if (cust) {
+      cust.balance = cust.pendingBalance || 0;
+      cust.previousBalance = cust.pendingBalance || 0;
       document.getElementById("billing-customer-name").value = cust.name;
       document.getElementById("billing-customer-phone").value = cust.phone || "";
     } else {
@@ -1220,8 +1303,9 @@ function updateBillingPreviousBalanceUI() {
     }
   }
 
-  if (selectedCustomer && selectedCustomer.pendingBalance > 0) {
-    const prevBal = selectedCustomer.pendingBalance;
+  const prevBal = selectedCustomer ? (selectedCustomer.balance || selectedCustomer.pendingBalance || selectedCustomer.previousBalance || 0) : 0;
+
+  if (selectedCustomer && prevBal > 0) {
     if (state.activeBillingMode === "udhaar") {
       // 1. Payment Mode is Udhaar: Show balance and checkbox
       prevBalBox.innerHTML = `
@@ -1688,7 +1772,9 @@ async function generateInvoice() {
 
   if (state.activeBillingMode === "udhaar" && resolvedCustomerId) {
     const cust = DB.getCustomers().find(c => c.id === resolvedCustomerId);
-    if (cust && (cust.pendingBalance > 0 || cust.balance > 0)) {
+    if (cust) {
+      cust.balance = cust.pendingBalance || 0;
+      cust.previousBalance = cust.pendingBalance || 0;
       previousBalance = cust.balance || cust.pendingBalance || 0;
       const cb = document.getElementById("billing-include-prev-bal");
       if (cb && cb.checked) {
@@ -1722,8 +1808,10 @@ async function generateInvoice() {
 
   // Clear state
   state.cart = [];
+  state.selectedCategory = null; // Reset category
   document.getElementById("summary-discount-input").value = 0;
   renderCart();
+  renderQuickPicks(); // Re-render quick picks categories
   
   // Reset fields to default
   document.getElementById("billing-customer-name").value = "Walk-in Customer";
@@ -1845,46 +1933,59 @@ function openInvoiceModal(invoice) {
   const modeVal = document.getElementById("invoice-paymode-val");
   const upiSection = document.getElementById("invoice-upi-section");
   if (invoice.paymentMode === "udhaar") {
-    // Populate UPI dynamic block
-    const upiName = shop.upiName || "Account Holder Name";
-    const upiPhone = shop.upiPhone || "9876543210";
-    const upiId = shop.upiId || "yourname@upi";
-    
-    const qrAmount = invoice.includePreviousBalance ? invoice.totalPayable : invoice.total;
+    const settings = JSON.parse(localStorage.getItem("gurbhej_settings") || "{}");
+    const upiName = settings.upiName ? settings.upiName.trim() : "";
+    const upiId = settings.upiId ? settings.upiId.trim() : "";
+    const upiPhone = settings.upiPhone ? settings.upiPhone.trim() : "";
+    const upiQrImage = settings.upiQrImage ? settings.upiQrImage.trim() : "";
 
-    document.getElementById("invoice-upi-name-val").textContent = upiName;
-    document.getElementById("invoice-upi-phone-val").textContent = upiPhone;
-    document.getElementById("invoice-upi-id-val").textContent = upiId;
-    document.getElementById("invoice-upi-amount-val").textContent = qrAmount.toFixed(2);
+    if (!upiName || !upiId) {
+      if (upiSection) {
+        upiSection.innerHTML = `
+          <div style="text-align: center; font-weight: bold; margin-bottom: 4px; font-size: 13px;">Pending Payment</div>
+          <div style="text-align: center; font-size: 11px; color: var(--danger); font-family: monospace; font-weight: bold; width: 100%; padding: 4px 0;">UPI details not added. Update in Settings.</div>
+        `;
+        upiSection.style.display = "flex";
+      }
+    } else {
+      const qrAmount = invoice.includePreviousBalance ? invoice.totalPayable : invoice.total;
+      
+      let qrContent = "";
+      if (upiQrImage) {
+        qrContent = `
+          <div class="upi-compact-right" style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px; width: 40%; flex: 0 0 40%;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+              <div id="invoice-upi-qr-container" style="display: flex; align-items: center; justify-content: center; width: 120px; height: 120px; max-width: 120px; max-height: 120px; overflow: hidden;">
+                <img src="${upiQrImage}" style="width: 120px !important; height: 120px !important; max-width: 120px !important; max-height: 120px !important; object-fit: contain !important; display: block;" class="invoice-upi-qr-img" alt="UPI QR Code">
+              </div>
+              <span style="font-size: 9px; font-weight: bold; color: var(--text);">Scan to Pay</span>
+            </div>
+          </div>
+        `;
+      }
 
-    const qrContainer = document.getElementById("invoice-upi-qr-container");
-    if (qrContainer) {
-      qrContainer.innerHTML = "";
-      if (shop.upiQrImage) {
-        const img = document.createElement("img");
-        img.src = shop.upiQrImage;
-        img.className = "invoice-upi-qr-img";
-        img.alt = "UPI QR Code";
-        qrContainer.appendChild(img);
-      } else {
-        const img = document.createElement("img");
-        const cleanName = encodeURIComponent(upiName);
-        const upiString = `upi://pay?pa=${upiId}&pn=${cleanName}&am=${qrAmount.toFixed(2)}&cu=INR`;
-        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiString)}`;
-        img.className = "invoice-upi-qr-img";
-        img.alt = "UPI QR Code";
-        img.onerror = () => {
-          qrContainer.innerHTML = `<div style="border: 2px dashed #000; padding: 12px; font-size: 10px; width: 150px; font-family: monospace;">Scan QR not available offline without custom upload</div>`;
-        };
-        qrContainer.appendChild(img);
+      if (upiSection) {
+        upiSection.innerHTML = `
+          <div style="text-align: center; font-weight: bold; margin-bottom: 4px; font-size: 13px;">Pending Payment</div>
+          <div class="upi-compact-row" style="display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 12px;">
+            <!-- Left Side: UPI ID Details -->
+            <div class="upi-compact-left" style="font-size: 10.5px; line-height: 1.4; font-family: monospace; width: 60%; flex: 0 0 60%; display: flex; flex-direction: column; gap: 4px;">
+              <div>Name: <span id="invoice-upi-name-val">${upiName}</span></div>
+              <div>Phone: <span id="invoice-upi-phone-val">${upiPhone}</span></div>
+              <div>UPI ID: <span id="invoice-upi-id-val">${upiId}</span></div>
+              <div style="font-weight: bold; margin-top: 4px; font-size: 11px;">Amount Due: Rs.<span id="invoice-upi-amount-val">${qrAmount.toFixed(2)}</span></div>
+            </div>
+            ${qrContent}
+          </div>
+        `;
+        upiSection.style.display = "flex";
       }
     }
-    if (upiSection) upiSection.style.display = "flex";
   } else {
     if (upiSection) upiSection.style.display = "none";
   }
 
-  openModal("modal-invoice-slip");
+  openModal("invoice-slip");
 }
 
 function padEnd(str, targetLength, padChar = " ") {
@@ -1927,16 +2028,102 @@ function getEnglishName(name) {
 }
 
 function triggerPrint() {
-  const template = document.getElementById("pdf-print-template");
-  if (template) {
-    template.style.display = "block";
-    template.style.visibility = "visible";
+  const slip = document.querySelector("#invoice-slip, .invoice-slip, .receipt-card");
+  if (!slip) {
+    showToast("Invoice slip not found", "error");
+    return;
   }
-  window.print();
-  if (template) {
-    template.style.display = "none";
-    template.style.visibility = "hidden";
+
+  const printWindow = window.open("", "_blank", "width=800,height=800");
+  if (!printWindow) {
+    showToast("Popup blocker prevented printing. Please allow popups.", "error");
+    return;
   }
+
+  // Get style and link tags from parent document to preserve receipt themes and HSL variables
+  let styleMarkup = "";
+  document.querySelectorAll("link[rel='stylesheet'], style").forEach(el => {
+    styleMarkup += el.outerHTML;
+  });
+
+  // Construct print window HTML layout
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Print Invoice</title>
+      ${styleMarkup}
+      <style>
+        @page {
+          size: portrait;
+          margin: 5mm;
+        }
+        body {
+          margin: 0;
+          padding: 0;
+          background: white !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        /* Override modal overlay styles to render inline on print page */
+        .modal-overlay {
+          position: static !important;
+          background: transparent !important;
+          backdrop-filter: none !important;
+          opacity: 1 !important;
+          pointer-events: auto !important;
+          display: block !important;
+        }
+        .modal-container, .invoice-modal-container {
+          box-shadow: none !important;
+          border: none !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .invoice-slip, .invoice-paper-wrapper {
+          width: 80mm !important;
+          max-width: 80mm !important;
+          margin: 0 auto !important;
+          box-shadow: none !important;
+          border: none !important;
+          padding: 4mm !important;
+          background: white !important;
+        }
+        .invoice-upi-qr-img {
+          width: 120px !important;
+          height: 120px !important;
+          max-width: 120px !important;
+          max-height: 120px !important;
+          object-fit: contain !important;
+        }
+        /* Hide all action controls, close buttons, headers, footers */
+        .modal-header,
+        .modal-footer,
+        .invoice-action-controls,
+        .invoice-actions,
+        button,
+        .bottom-nav,
+        aside,
+        nav,
+        .btn-close-modal {
+          display: none !important;
+        }
+      </style>
+    </head>
+    <body>
+      ${slip.outerHTML}
+      <script>
+        setTimeout(() => {
+          window.print();
+          window.close();
+        }, 500);
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 async function generatePDFDocument(invoiceData = state.currentInvoice) {
@@ -2024,6 +2211,9 @@ async function downloadInvoicePDF() {
     return;
   }
   
+  // Ensure the modal is populated and open with the correct invoice
+  openInvoiceModal(invoice);
+  
   const cartItems = invoice.items || [];
   if (cartItems.length === 0) {
     showToast("No items in cart", "error");
@@ -2035,6 +2225,7 @@ async function downloadInvoicePDF() {
   
   // Pass complete invoice object as requested in requirement 5
   const completeInvoice = {
+    ...invoice,
     customer: invoice.customerName || invoice.customer || "Walk-in Customer",
     items: cartItems,
     subtotal: invoice.subtotal || 0,
@@ -2070,6 +2261,9 @@ async function shareInvoicePDF() {
     return;
   }
   
+  // Ensure the modal is populated and open with the correct invoice
+  openInvoiceModal(invoice);
+  
   const cartItems = invoice.items || [];
   if (cartItems.length === 0) {
     showToast("No items in cart", "error");
@@ -2081,6 +2275,7 @@ async function shareInvoicePDF() {
   
   // Pass complete invoice object as requested in requirement 5
   const completeInvoice = {
+    ...invoice,
     customer: invoice.customerName || invoice.customer || "Walk-in Customer",
     items: cartItems,
     subtotal: invoice.subtotal || 0,
@@ -2156,18 +2351,21 @@ function shareInvoiceWhatsApp() {
   }
   
   if (invoice.paymentMode === "udhaar") {
-    // Note: UPI configurations are fetched from the complete DB settings object
-    const settings = DB.getSettings();
-    const upiName = settings.upiName || "Account Holder Name";
-    const upiPhone = settings.upiPhone || "9876543210";
-    const upiId = settings.upiId || "yourname@upi";
+    const settings = JSON.parse(localStorage.getItem("gurbhej_settings") || "{}");
+    const upiName = settings.upiName ? settings.upiName.trim() : "";
+    const upiId = settings.upiId ? settings.upiId.trim() : "";
+    const upiPhone = settings.upiPhone ? settings.upiPhone.trim() : "";
     
     msg += `Pending Udhaar Payment:\n`;
-    msg += `Scan QR or pay via UPI:\n`;
-    msg += `Name: ${upiName}\n`;
-    msg += `Phone: ${upiPhone}\n`;
-    msg += `UPI ID: ${upiId}\n`;
-    msg += `Amount Due: ₹${invoice.total.toFixed(2)}\n\n`;
+    if (!upiName || !upiId) {
+      msg += `UPI details not added. Update in Settings.\n\n`;
+    } else {
+      msg += `Pay via UPI:\n`;
+      msg += `Name: ${upiName}\n`;
+      if (upiPhone) msg += `Phone: ${upiPhone}\n`;
+      msg += `UPI ID: ${upiId}\n`;
+      msg += `Amount Due: ₹${(invoice.includePreviousBalance ? invoice.totalPayable : invoice.total).toFixed(2)}\n\n`;
+    }
   }
 
   msg += `Thank you for shopping with ${shop.shopName}.`;
@@ -3648,7 +3846,6 @@ function setupSettingsEventListeners() {
   const upiForm = document.getElementById("settings-upi-form");
   const upiQrFile = document.getElementById("settings-upi-qr-file");
   const removeQrBtn = document.getElementById("btn-remove-upi-qr");
-  let upiQrBase64 = "";
 
   // Preview helper
   const updateQrPreview = (base64) => {
@@ -3664,12 +3861,6 @@ function setupSettingsEventListeners() {
     }
   };
 
-  // Pre-load base64 for submission
-  if (upiForm) {
-    const cachedSettings = DB.getSettings();
-    upiQrBase64 = cachedSettings.upiQrImage || "";
-  }
-
   // File Upload Input listener
   if (upiQrFile) {
     upiQrFile.addEventListener("change", (e) => {
@@ -3682,20 +3873,18 @@ function setupSettingsEventListeners() {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        upiQrBase64 = event.target.result;
-        updateQrPreview(upiQrBase64);
-        showToast("UPI QR Image uploaded!", "success");
-      };
-      reader.readAsDataURL(file);
+      startQrCropper(file, (croppedBase64) => {
+        state.upiQrBase64 = croppedBase64;
+        updateQrPreview(state.upiQrBase64);
+        showToast("UPI QR Image cropped & loaded!", "success");
+      });
     });
   }
 
   // Remove QR Button listener
   if (removeQrBtn) {
     removeQrBtn.addEventListener("click", () => {
-      upiQrBase64 = "";
+      state.upiQrBase64 = "";
       if (upiQrFile) upiQrFile.value = "";
       updateQrPreview("");
       showToast("UPI QR Image removed!", "info");
@@ -3712,7 +3901,7 @@ function setupSettingsEventListeners() {
         upiName: document.getElementById("settings-upi-name").value.trim(),
         upiPhone: document.getElementById("settings-upi-phone").value.trim(),
         upiId: document.getElementById("settings-upi-id").value.trim(),
-        upiQrImage: upiQrBase64
+        upiQrImage: state.upiQrBase64
       };
 
       showToast("Saving UPI Settings...", "info");
@@ -3789,6 +3978,7 @@ function renderSettings() {
   document.getElementById("settings-upi-name").value = shop.upiName || "";
   document.getElementById("settings-upi-phone").value = shop.upiPhone || "";
   document.getElementById("settings-upi-id").value = shop.upiId || "";
+  state.upiQrBase64 = shop.upiQrImage || "";
 
   // Pre-load base64 and show preview
   const previewContainer = document.getElementById("upi-qr-preview-container");
@@ -4237,15 +4427,13 @@ function setupProfileSetupEventListeners() {
         return;
       }
       
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setupQrBase64 = event.target.result;
+      startQrCropper(file, (croppedBase64) => {
+        setupQrBase64 = croppedBase64;
         if (setupQrPreview) setupQrPreview.src = setupQrBase64;
         if (setupQrPreviewContainer) setupQrPreviewContainer.style.display = "block";
         if (setupRemoveQrBtn) setupRemoveQrBtn.style.display = "inline-block";
-        showToast("UPI QR Image uploaded!", "success");
-      };
-      reader.readAsDataURL(file);
+        showToast("UPI QR Image cropped & loaded!", "success");
+      });
     });
   }
 
@@ -4380,4 +4568,323 @@ function setupProfileSetupEventListeners() {
       }
     });
   }
+}
+
+function detectQrArea(img) {
+  const tempCanvas = document.createElement("canvas");
+  const tempCtx = tempCanvas.getContext("2d");
+  
+  // Preserve aspect ratio while constraining maximum dimension to 120 for performance
+  const maxDim = 120;
+  let w_temp, h_temp;
+  if (img.width > img.height) {
+    w_temp = maxDim;
+    h_temp = Math.round(maxDim * (img.height / img.width));
+  } else {
+    h_temp = maxDim;
+    w_temp = Math.round(maxDim * (img.width / img.height));
+  }
+  
+  w_temp = Math.max(20, w_temp);
+  h_temp = Math.max(20, h_temp);
+  
+  tempCanvas.width = w_temp;
+  tempCanvas.height = h_temp;
+  tempCtx.drawImage(img, 0, 0, w_temp, h_temp);
+  
+  try {
+    const imgData = tempCtx.getImageData(0, 0, w_temp, h_temp);
+    const data = imgData.data;
+    
+    // Create a 2D grid of edge intensity (grayscale and horizontal absolute diff)
+    const edges = new Uint8Array(w_temp * h_temp);
+    for (let y = 0; y < h_temp; y++) {
+      for (let x = 1; x < w_temp; x++) {
+        const idx = (y * w_temp + x) * 4;
+        const prevIdx = (y * w_temp + (x - 1)) * 4;
+        
+        // Grayscale values
+        const val = (data[idx] + data[idx+1] + data[idx+2]) / 3;
+        const prevVal = (data[prevIdx] + data[prevIdx+1] + data[prevIdx+2]) / 3;
+        
+        if (Math.abs(val - prevVal) > 35) {
+          edges[y * w_temp + x] = 1;
+        }
+      }
+    }
+    
+    // Slide a square window of size W across the grid
+    let maxScore = -1;
+    let bestX = 0;
+    let bestY = 0;
+    let bestW = 0;
+    
+    // Generate candidate window sizes based on the minimum dimension
+    const minDim = Math.min(w_temp, h_temp);
+    const windowSizes = [];
+    for (let pct = 0.25; pct <= 0.85; pct += 0.15) {
+      const w = Math.round(minDim * pct);
+      if (w >= 15 && !windowSizes.includes(w)) {
+        windowSizes.push(w);
+      }
+    }
+    if (windowSizes.length === 0) {
+      windowSizes.push(Math.max(15, Math.round(minDim * 0.4)));
+    }
+    
+    for (const w of windowSizes) {
+      for (let y = 0; y <= h_temp - w; y += 2) {
+        for (let x = 0; x <= w_temp - w; x += 2) {
+          let sum = 0;
+          for (let wy = 0; wy < w; wy++) {
+            for (let wx = 0; wx < w; wx++) {
+              if (edges[(y + wy) * w_temp + (x + wx)] === 1) {
+                sum++;
+              }
+            }
+          }
+          
+          // Score = sum^2 / area
+          const score = (sum * sum) / (w * w);
+          if (score > maxScore) {
+            maxScore = score;
+            bestX = x;
+            bestY = y;
+            bestW = w;
+          }
+        }
+      }
+    }
+    
+    if (maxScore <= 0 || bestW === 0) {
+      return null;
+    }
+    
+    // Return coordinates mapped to original image pixels
+    return {
+      x: (bestX / w_temp) * img.width,
+      y: (bestY / h_temp) * img.height,
+      w: (bestW / w_temp) * img.width
+    };
+  } catch (err) {
+    console.error("QR Auto Detection failed:", err);
+    return null;
+  }
+}
+
+function startQrCropper(file, onCropComplete) {
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      // Initialize Canvas
+      const canvas = document.getElementById("qr-crop-canvas");
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      
+      const maxDisplaySize = 350;
+      const displayScale = Math.min(maxDisplaySize / img.width, maxDisplaySize / img.height, 1);
+      canvas.width = img.width * displayScale;
+      canvas.height = img.height * displayScale;
+      
+      let cropSize = Math.min(canvas.width, canvas.height) * 0.7;
+      let cropX = (canvas.width - cropSize) / 2;
+      let cropY = (canvas.height - cropSize) / 2;
+      
+      const slider = document.getElementById("qr-crop-size-slider");
+      const sizeVal = document.getElementById("qr-crop-size-val");
+      
+      if (slider) {
+        slider.min = 30;
+        slider.max = Math.min(canvas.width, canvas.height);
+        slider.value = cropSize;
+      }
+      if (sizeVal) {
+        sizeVal.textContent = `${Math.round(cropSize)}px`;
+      }
+      
+      function drawCropCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(0, 0, canvas.width, cropY);
+        ctx.fillRect(0, cropY + cropSize, canvas.width, canvas.height - (cropY + cropSize));
+        ctx.fillRect(0, cropY, cropX, cropSize);
+        ctx.fillRect(cropX + cropSize, cropY, canvas.width - (cropX + cropSize), cropSize);
+        
+        ctx.strokeStyle = "#4f46e5"; // var(--primary) equivalent hex
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(cropX, cropY, cropSize, cropSize);
+        ctx.setLineDash([]);
+      }
+      
+      // Dragging state variables
+      let isDragging = false;
+      let offsetX = 0;
+      let offsetY = 0;
+      
+      function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+        const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        return {
+          x: (clientX - rect.left) * (canvas.width / rect.width),
+          y: (clientY - rect.top) * (canvas.height / rect.height)
+        };
+      }
+      
+      function handleStart(evt) {
+        const pos = getMousePos(evt);
+        if (pos.x >= cropX && pos.x <= cropX + cropSize && pos.y >= cropY && pos.y <= cropY + cropSize) {
+          isDragging = true;
+          offsetX = pos.x - cropX;
+          offsetY = pos.y - cropY;
+          evt.preventDefault();
+        }
+      }
+      
+      function handleMove(evt) {
+        if (!isDragging) return;
+        const pos = getMousePos(evt);
+        cropX = pos.x - offsetX;
+        cropY = pos.y - offsetY;
+        
+        // Constrain bounds
+        cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
+        cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+        
+        drawCropCanvas();
+        evt.preventDefault();
+      }
+      
+      function handleEnd() {
+        isDragging = false;
+      }
+      
+      // Wire drag events (Mouse & Touch)
+      canvas.onmousedown = handleStart;
+      canvas.onmousemove = handleMove;
+      canvas.onmouseup = handleEnd;
+      canvas.onmouseout = handleEnd;
+      
+      canvas.ontouchstart = handleStart;
+      canvas.ontouchmove = handleMove;
+      canvas.ontouchend = handleEnd;
+      canvas.ontouchcancel = handleEnd;
+      
+      // Wire slider
+      if (slider) {
+        slider.oninput = (evt) => {
+          const newSize = parseFloat(evt.target.value);
+          const centerX = cropX + cropSize / 2;
+          const centerY = cropY + cropSize / 2;
+          
+          cropSize = newSize;
+          cropX = centerX - cropSize / 2;
+          cropY = centerY - cropSize / 2;
+          
+          // Constrain bounds after resize
+          cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
+          cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+          
+          if (sizeVal) {
+            sizeVal.textContent = `${Math.round(cropSize)}px`;
+          }
+          drawCropCanvas();
+        };
+      }
+      
+      // Wire Crop & Save Button
+      const saveBtn = document.getElementById("btn-save-cropped-qr");
+      const cancelBtn = document.getElementById("btn-cancel-crop-qr");
+      const closeBtn = document.getElementById("btn-close-crop-modal");
+      const detectBtn = document.getElementById("btn-auto-detect-qr");
+
+      const resetFileInputs = () => {
+        const f1 = document.getElementById("settings-upi-qr-file");
+        if (f1) f1.value = "";
+        const f2 = document.getElementById("setup-upi-qr");
+        if (f2) f2.value = "";
+      };
+
+      saveBtn.onclick = () => {
+        const originalScale = img.width / canvas.width;
+        const origX = cropX * originalScale;
+        const origY = cropY * originalScale;
+        const origSize = cropSize * originalScale;
+        
+        const cropCanvas = document.createElement("canvas");
+        cropCanvas.width = 300;
+        cropCanvas.height = 300;
+        const cropCtx = cropCanvas.getContext("2d");
+        
+        cropCtx.drawImage(img, origX, origY, origSize, origSize, 0, 0, 300, 300);
+        
+        const croppedBase64 = cropCanvas.toDataURL("image/png");
+        onCropComplete(croppedBase64);
+        closeAllModals();
+      };
+
+      if (cancelBtn) {
+        cancelBtn.onclick = () => {
+          resetFileInputs();
+          closeAllModals();
+        };
+      }
+      if (closeBtn) {
+        closeBtn.onclick = () => {
+          resetFileInputs();
+          closeAllModals();
+        };
+      }
+
+      if (detectBtn) {
+        detectBtn.onclick = () => {
+          const detected = detectQrArea(img);
+          if (detected) {
+            // Map detected coordinates from image space to canvas display space
+            const canvasScale = canvas.width / img.width;
+            const detectedX = detected.x * canvasScale;
+            const detectedY = detected.y * canvasScale;
+            const detectedW = detected.w * canvasScale;
+            
+            // Add 8% padding around QR code
+            const padding = detectedW * 0.08;
+            
+            cropSize = detectedW + padding * 2;
+            cropX = detectedX - padding;
+            cropY = detectedY - padding;
+            
+            // Constrain crop box to fit within canvas dimensions (keep square)
+            cropSize = Math.min(cropSize, canvas.width, canvas.height);
+            cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
+            cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+            
+            if (slider) {
+              slider.max = Math.min(canvas.width, canvas.height);
+              slider.value = cropSize;
+            }
+            if (sizeVal) {
+              sizeVal.textContent = `${Math.round(cropSize)}px`;
+            }
+            
+            drawCropCanvas();
+            showToast("QR code detected & cropped!", "success");
+          } else {
+            showToast("QR not detected. Please adjust manually.", "error");
+          }
+        };
+      }
+      
+      // Initial render & open Modal
+      drawCropCanvas();
+      openModal("modal-crop-qr");
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
