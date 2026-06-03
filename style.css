@@ -3420,8 +3420,13 @@ body.modal-open {
 @media (min-width: 769px) {
   .bottom-nav,
   .mobile-bottom-nav,
-  .mobile-nav {
+  .mobile-nav,
+  .mobile-menu-button,
+  #mobile-nav-more-btn {
     display: none !important;
+  }
+  aside {
+    display: flex !important;
   }
 }
 
@@ -3430,6 +3435,13 @@ body.modal-open {
   .mobile-bottom-nav,
   .mobile-nav {
     display: flex !important;
+  }
+  aside {
+    display: none !important;
+  }
+  .nav-footer,
+  .sidebar-footer {
+    margin-bottom: 90px !important;
   }
 }
 
@@ -3472,4 +3484,22 @@ body.setup-active #pdf-print-template {
 .invoice-template,
 .print-template {
   display: none !important;
+}
+
+@media (min-width: 769px) {
+  .mobile-bottom-nav,
+  .mobile-bottom-nav *,
+  #mobile-nav-more-btn,
+  #mobile-more-popover {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex !important;
+  }
 }

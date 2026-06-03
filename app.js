@@ -429,7 +429,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   checkFirstTimeProfile();
   
   showToast("Ready / ਤਿਆਰ / तैयार", "success");
+  fixMobileNavVisibility();
+  window.addEventListener('resize', fixMobileNavVisibility);
 });
+
+function fixMobileNavVisibility() {
+  const nav = document.querySelector('.mobile-bottom-nav');
+  const popover = document.querySelector('#mobile-more-popover');
+  const isDesktop = window.innerWidth >= 769;
+
+  if (nav) {
+    nav.style.display = isDesktop ? 'none' : 'flex';
+    nav.style.visibility = isDesktop ? 'hidden' : 'visible';
+  }
+
+  if (popover && isDesktop) {
+    popover.style.display = 'none';
+    popover.style.visibility = 'hidden';
+  }
+}
 
 // Routing switcher
 function switchPage(pageId) {
@@ -494,6 +512,7 @@ function switchPage(pageId) {
 
   // Refresh page specific views
   renderActivePage();
+  fixMobileNavVisibility();
 }
 
 function renderActivePage() {
@@ -526,6 +545,7 @@ function renderActivePage() {
       renderExpenses();
       break;
   }
+  fixMobileNavVisibility();
 }
 
 // ==========================================

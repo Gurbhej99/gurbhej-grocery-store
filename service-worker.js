@@ -1,11 +1,11 @@
-const CACHE_NAME = "gurbhej-store-cache-v28"; // Incremented version to refresh client caches
+const CACHE_NAME = "gurbhej-store-cache-v31"; // Incremented version to refresh client caches
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
-  "./app.js?v=10",
+  "./app.js?v=11",
   "./db.js",
   "./firebase-config.js",
-  "./style.css",
+  "./style.css?v=13",
   "./translation.js?v=10",
   "./manifest.json",
   "./icons/icon-512.png",
