@@ -1,12 +1,12 @@
-const CACHE_NAME = "gurbhej-store-cache-v20"; // Incremented version to refresh client caches
+const CACHE_NAME = "gurbhej-store-cache-v28"; // Incremented version to refresh client caches
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
-  "./app.js?v=2",
+  "./app.js?v=10",
   "./db.js",
   "./firebase-config.js",
   "./style.css",
-  "./translation.js?v=3",
+  "./translation.js?v=10",
   "./manifest.json",
   "./icons/icon-512.png",
   "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",

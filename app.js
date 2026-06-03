@@ -1,7 +1,7 @@
 // Main Application Controller - Gurbhej Grocery Store
 // Connects UI events, translations, bidirectional billing, Khatabook ledgers, and dynamic SVG graphics.
 
-import TRANSLATIONS from "./translation.js?v=3";
+import TRANSLATIONS from "./translation.js?v=10";
 import DB from "./db.js";
 
 // ==========================================
@@ -199,7 +199,9 @@ const state = {
   firebaseEnabled: false,
   selectedCategory: null,
   upiQrBase64: "",
-  scannerTarget: "billing"
+  scannerMode: "billing",
+  barcodeTargetInput: null,
+  isSubmittingProfile: false
 };
 
 // ==========================================
@@ -383,6 +385,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Bind Modals Close Buttons
   document.querySelectorAll(".btn-close-modal").forEach(btn => {
     btn.addEventListener("click", () => {
+      if (btn.id === "btn-close-barcode-scanner" || btn.id === "btn-close-barcode-scanner-header") {
+        // Do not close all modals; closeBarcodeScanner will close ONLY the scanner modal
+        return;
+      }
       closeAllModals();
     });
   });
@@ -909,7 +915,7 @@ function setupBarcodeScanner() {
   const scanProductBarcodeBtn = document.getElementById("btn-scan-product-barcode");
   if (scanProductBarcodeBtn) {
     scanProductBarcodeBtn.addEventListener("click", () => {
-      openBarcodeScanner('product_form');
+      openBarcodeScanner('product-form', document.getElementById("product-barcode"));
     });
   }
 
@@ -948,8 +954,9 @@ function setupBarcodeScanner() {
   }
 }
 
-function openBarcodeScanner(target = 'billing') {
-  state.scannerTarget = target;
+function openBarcodeScanner(mode = 'billing', targetInput = null) {
+  state.scannerMode = mode;
+  state.barcodeTargetInput = targetInput;
   
   const manualInput = document.getElementById("manual-barcode-input");
   if (manualInput) manualInput.value = "";
@@ -966,7 +973,7 @@ function openBarcodeScanner(target = 'billing') {
 
 function closeBarcodeScanner() {
   stopBarcodeCamera();
-  closeAllModals();
+  document.getElementById("modal-barcode-scanner").classList.remove("active");
 }
 
 function startBarcodeCamera() {
@@ -1047,16 +1054,16 @@ function stopBarcodeCamera() {
 function handleBarcodeScanned(barcode, isManual = false) {
   console.log("Processing scanned barcode:", barcode);
   
-  if (state.scannerTarget === 'product_form') {
+  if (state.scannerMode === 'product-form') {
     // Stop camera and close scanner modal
     stopBarcodeCamera();
-    closeAllModals();
+    document.getElementById("modal-barcode-scanner").classList.remove("active");
 
-    const barcodeInput = document.getElementById("product-barcode");
+    const barcodeInput = state.barcodeTargetInput || document.getElementById("product-barcode");
     if (barcodeInput) {
       barcodeInput.value = barcode;
     }
-    showToast("Barcode scanned successfully!", "success");
+    showToast("Barcode added to product form", "success");
     return;
   }
 
@@ -4112,22 +4119,52 @@ function setupSettingsEventListeners() {
     });
   }
 
+  const saveUpiSettings = (upiQrBase64Value) => {
+    const current = DB.getSettings();
+    const updated = {
+      ...current,
+      upiName: document.getElementById("settings-upi-name").value.trim(),
+      upiPhone: document.getElementById("settings-upi-phone").value.trim(),
+      upiId: document.getElementById("settings-upi-id").value.trim(),
+      upiQrImage: upiQrBase64Value
+    };
+
+    showToast("Saving UPI Settings...", "info");
+    DB.saveSettings(updated);
+    showToast("UPI Payment Settings updated!", "success");
+    renderSettings();
+  };
+
   // Form Submit listener
   if (upiForm) {
     upiForm.addEventListener("submit", (e) => {
       e.preventDefault();
-      const current = DB.getSettings();
-      const updated = {
-        ...current,
-        upiName: document.getElementById("settings-upi-name").value.trim(),
-        upiPhone: document.getElementById("settings-upi-phone").value.trim(),
-        upiId: document.getElementById("settings-upi-id").value.trim(),
-        upiQrImage: state.upiQrBase64
-      };
-
-      showToast("Saving UPI Settings...", "info");
-      DB.saveSettings(updated);
-      showToast("UPI Payment Settings updated!", "success");
+      
+      const file = upiQrFile ? upiQrFile.files[0] : null;
+      if (file && !state.upiQrBase64) {
+        state.isSubmittingProfile = true;
+        
+        startQrCropper(file,
+          (croppedBase64) => {
+            state.upiQrBase64 = croppedBase64;
+            updateQrPreview(croppedBase64);
+            state.isSubmittingProfile = false;
+            saveUpiSettings(croppedBase64);
+          },
+          () => {
+            if (confirm("Continue without QR?")) {
+              state.isSubmittingProfile = false;
+              saveUpiSettings("");
+              return true;
+            } else {
+              return false;
+            }
+          }
+        );
+        return;
+      }
+      
+      saveUpiSettings(state.upiQrBase64);
     });
   }
 
@@ -4648,13 +4685,11 @@ function setupProfileSetupEventListeners() {
         return;
       }
       
-      startQrCropper(file, (croppedBase64) => {
-        setupQrBase64 = croppedBase64;
-        if (setupQrPreview) setupQrPreview.src = setupQrBase64;
-        if (setupQrPreviewContainer) setupQrPreviewContainer.style.display = "block";
-        if (setupRemoveQrBtn) setupRemoveQrBtn.style.display = "inline-block";
-        showToast("UPI QR Image cropped & loaded!", "success");
-      });
+      // Reset setupQrBase64 to ensure it is cropped at submit
+      setupQrBase64 = "";
+      if (setupQrPreview) setupQrPreview.src = "";
+      if (setupQrPreviewContainer) setupQrPreviewContainer.style.display = "none";
+      showToast("UPI QR Image selected. Click Save & Start to crop.", "info");
     });
   }
 
@@ -4691,51 +4726,137 @@ function setupProfileSetupEventListeners() {
     });
   }
 
+  const completeProfileSetup = (upiQrBase64Value, shouldReload = true) => {
+    const updated = {
+      profileCompleted: true,
+      shopName: document.getElementById("setup-shop-name").value.trim(),
+      ownerName: document.getElementById("setup-owner-name").value.trim(),
+      shopPhone: document.getElementById("setup-shop-phone").value.trim(),
+      shopAddress: document.getElementById("setup-shop-address").value.trim(),
+      shopTagline: document.getElementById("setup-shop-tagline").value.trim(),
+      upiName: document.getElementById("setup-upi-name").value.trim(),
+      upiPhone: document.getElementById("setup-upi-phone").value.trim(),
+      upiId: document.getElementById("setup-upi-id").value.trim(),
+      upiQrImage: upiQrBase64Value
+    };
+    
+    showToast("Saving shop profile...", "info");
+    DB.saveSettings(updated);
+    
+    // Requirement 5: Set localStorage.setItem("storeSetupComplete","true")
+    localStorage.setItem("storeSetupComplete", "true");
+    document.body.classList.remove("setup-active");
+    
+    showToast("Profile saved. Opening dashboard...", "success");
+    
+    const overlay = document.getElementById("profile-setup-overlay");
+    if (overlay) overlay.style.display = "none";
+    
+    // Restore layout frameworks visibility
+    const mainEl = document.querySelector("main");
+    if (mainEl) mainEl.style.display = "";
+    const asideEl = document.querySelector("aside");
+    if (asideEl) asideEl.style.display = "";
+    const mobileNav = document.querySelector(".mobile-bottom-nav");
+    if (mobileNav) mobileNav.style.display = "";
+    
+    // Sync controls and render dashboard
+    renderSettings();
+    switchPage("dashboard");
+
+    if (shouldReload) {
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
+    }
+  };
+
   // Profile Save Form Submit
   if (setupForm) {
     setupForm.addEventListener("submit", async (e) => {
       e.preventDefault();
+      console.log("Setup save clicked");
       
-      const updated = {
-        profileCompleted: true,
-        shopName: document.getElementById("setup-shop-name").value.trim(),
-        ownerName: document.getElementById("setup-owner-name").value.trim(),
-        shopPhone: document.getElementById("setup-shop-phone").value.trim(),
-        shopAddress: document.getElementById("setup-shop-address").value.trim(),
-        shopTagline: document.getElementById("setup-shop-tagline").value.trim(),
-        upiName: document.getElementById("setup-upi-name").value.trim(),
-        upiPhone: document.getElementById("setup-upi-phone").value.trim(),
-        upiId: document.getElementById("setup-upi-id").value.trim(),
-        upiQrImage: setupQrBase64
-      };
+      if (!setupForm.checkValidity()) {
+        setupForm.reportValidity();
+        return;
+      }
       
-      showToast("Saving shop profile...", "info");
-      DB.saveSettings(updated);
+      const file = setupQrFile ? setupQrFile.files[0] : null;
+      if (file && !setupQrBase64) {
+        console.log("QR file detected");
+        
+        // Store all form data temporarily in memory
+        window.pendingSetupData = {
+          profileCompleted: true,
+          shopName: document.getElementById("setup-shop-name").value.trim(),
+          ownerName: document.getElementById("setup-owner-name").value.trim(),
+          shopPhone: document.getElementById("setup-shop-phone").value.trim(),
+          shopAddress: document.getElementById("setup-shop-address").value.trim(),
+          shopTagline: document.getElementById("setup-shop-tagline").value.trim(),
+          upiName: document.getElementById("setup-upi-name").value.trim(),
+          upiPhone: document.getElementById("setup-upi-phone").value.trim(),
+          upiId: document.getElementById("setup-upi-id").value.trim()
+        };
+        console.log("Setup data stored temporarily");
+        
+        console.log("Opening crop modal");
+        
+        startQrCropper(file,
+          (croppedBase64) => {
+            console.log("Cropped QR saved into setup data");
+            setupQrBase64 = croppedBase64;
+            window.pendingSetupData.upiQrImage = croppedBase64;
+            
+            showToast("Saving shop profile...", "info");
+            DB.saveSettings(window.pendingSetupData);
+            
+            localStorage.setItem("storeSetupComplete", "true");
+            console.log("Setup completed with QR");
+            
+            // Remove setup active CSS classes and overlay screen
+            document.body.classList.remove("setup-active");
+            const overlay = document.getElementById("profile-setup-overlay");
+            if (overlay) overlay.style.display = "none";
+            
+            // Restore layout frameworks visibility
+            const mainEl = document.querySelector("main");
+            if (mainEl) mainEl.style.display = "";
+            const asideEl = document.querySelector("aside");
+            if (asideEl) asideEl.style.display = "";
+            const mobileNav = document.querySelector(".mobile-bottom-nav");
+            if (mobileNav) mobileNav.style.display = "";
+            
+            renderSettings();
+            switchPage("dashboard");
+            console.log("Dashboard opened");
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 300);
+          },
+          () => {
+            if (confirm("Continue without QR?")) {
+              console.log("QR crop cancelled");
+              completeProfileSetup("");
+              console.log("Dashboard opened");
+            }
+          },
+          (err) => {
+            console.error("QR crop failed to open:", err);
+            alert("QR crop could not open. Please try again or continue without QR.");
+            if (confirm("Would you like to continue setup without QR?")) {
+              completeProfileSetup("");
+              console.log("Dashboard opened");
+            }
+          }
+        );
+        console.log("QR crop modal opened");
+        return;
+      }
       
-      // Requirement 5: Set localStorage.setItem("storeSetupComplete","true")
-      localStorage.setItem("storeSetupComplete", "true");
-      document.body.classList.remove("setup-active");
-      
-      showToast("Profile saved. Opening dashboard...", "success");
-      
-      const overlay = document.getElementById("profile-setup-overlay");
-      if (overlay) overlay.style.display = "none";
-      
-      // Restore layout frameworks visibility
-      const mainEl = document.querySelector("main");
-      if (mainEl) mainEl.style.display = "";
-      const asideEl = document.querySelector("aside");
-      if (asideEl) asideEl.style.display = "";
-      const mobileNav = document.querySelector(".mobile-bottom-nav");
-      if (mobileNav) mobileNav.style.display = "";
-      
-      // Sync controls and render dashboard
-      renderSettings();
-      switchPage("dashboard");
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 300);
+      completeProfileSetup(setupQrBase64, true);
+      console.log("Dashboard opened");
     });
   }
 
@@ -4893,199 +5014,49 @@ function detectQrArea(img) {
   }
 }
 
-function startQrCropper(file, onCropComplete) {
-  if (!file) return;
+function startQrCropper(file, onCropComplete, onCropCancel = null, onCropError = null) {
+  if (!file) {
+    if (onCropError) onCropError(new Error("No file provided"));
+    return;
+  }
   
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const img = new Image();
-    img.onload = () => {
-      // Initialize Canvas
-      const canvas = document.getElementById("qr-crop-canvas");
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      
-      const maxDisplaySize = 350;
-      const displayScale = Math.min(maxDisplaySize / img.width, maxDisplaySize / img.height, 1);
-      canvas.width = img.width * displayScale;
-      canvas.height = img.height * displayScale;
-      
-      let cropSize = Math.min(canvas.width, canvas.height) * 0.7;
-      let cropX = (canvas.width - cropSize) / 2;
-      let cropY = (canvas.height - cropSize) / 2;
-      
-      const slider = document.getElementById("qr-crop-size-slider");
-      const sizeVal = document.getElementById("qr-crop-size-val");
-      
-      if (slider) {
-        slider.min = 30;
-        slider.max = Math.min(canvas.width, canvas.height);
-        slider.value = cropSize;
-      }
-      if (sizeVal) {
-        sizeVal.textContent = `${Math.round(cropSize)}px`;
-      }
-      
-      function drawCropCanvas() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(0, 0, canvas.width, cropY);
-        ctx.fillRect(0, cropY + cropSize, canvas.width, canvas.height - (cropY + cropSize));
-        ctx.fillRect(0, cropY, cropX, cropSize);
-        ctx.fillRect(cropX + cropSize, cropY, canvas.width - (cropX + cropSize), cropSize);
-        
-        ctx.strokeStyle = "#4f46e5"; // var(--primary) equivalent hex
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 4]);
-        ctx.strokeRect(cropX, cropY, cropSize, cropSize);
-        ctx.setLineDash([]);
-      }
-      
-      // Dragging state variables
-      let isDragging = false;
-      let offsetX = 0;
-      let offsetY = 0;
-      
-      function getMousePos(evt) {
-        const rect = canvas.getBoundingClientRect();
-        const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-        const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        return {
-          x: (clientX - rect.left) * (canvas.width / rect.width),
-          y: (clientY - rect.top) * (canvas.height / rect.height)
+  try {
+    const reader = new FileReader();
+    reader.onerror = (err) => {
+      if (onCropError) onCropError(err);
+    };
+    reader.onload = (e) => {
+      try {
+        const img = new Image();
+        img.onerror = (err) => {
+          if (onCropError) onCropError(err);
         };
-      }
-      
-      function handleStart(evt) {
-        const pos = getMousePos(evt);
-        if (pos.x >= cropX && pos.x <= cropX + cropSize && pos.y >= cropY && pos.y <= cropY + cropSize) {
-          isDragging = true;
-          offsetX = pos.x - cropX;
-          offsetY = pos.y - cropY;
-          evt.preventDefault();
-        }
-      }
-      
-      function handleMove(evt) {
-        if (!isDragging) return;
-        const pos = getMousePos(evt);
-        cropX = pos.x - offsetX;
-        cropY = pos.y - offsetY;
-        
-        // Constrain bounds
-        cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
-        cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
-        
-        drawCropCanvas();
-        evt.preventDefault();
-      }
-      
-      function handleEnd() {
-        isDragging = false;
-      }
-      
-      // Wire drag events (Mouse & Touch)
-      canvas.onmousedown = handleStart;
-      canvas.onmousemove = handleMove;
-      canvas.onmouseup = handleEnd;
-      canvas.onmouseout = handleEnd;
-      
-      canvas.ontouchstart = handleStart;
-      canvas.ontouchmove = handleMove;
-      canvas.ontouchend = handleEnd;
-      canvas.ontouchcancel = handleEnd;
-      
-      // Wire slider
-      if (slider) {
-        slider.oninput = (evt) => {
-          const newSize = parseFloat(evt.target.value);
-          const centerX = cropX + cropSize / 2;
-          const centerY = cropY + cropSize / 2;
-          
-          cropSize = newSize;
-          cropX = centerX - cropSize / 2;
-          cropY = centerY - cropSize / 2;
-          
-          // Constrain bounds after resize
-          cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
-          cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
-          
-          if (sizeVal) {
-            sizeVal.textContent = `${Math.round(cropSize)}px`;
-          }
-          drawCropCanvas();
-        };
-      }
-      
-      // Wire Crop & Save Button
-      const saveBtn = document.getElementById("btn-save-cropped-qr");
-      const cancelBtn = document.getElementById("btn-cancel-crop-qr");
-      const closeBtn = document.getElementById("btn-close-crop-modal");
-      const detectBtn = document.getElementById("btn-auto-detect-qr");
-
-      const resetFileInputs = () => {
-        const f1 = document.getElementById("settings-upi-qr-file");
-        if (f1) f1.value = "";
-        const f2 = document.getElementById("setup-upi-qr");
-        if (f2) f2.value = "";
-      };
-
-      saveBtn.onclick = () => {
-        const originalScale = img.width / canvas.width;
-        const origX = cropX * originalScale;
-        const origY = cropY * originalScale;
-        const origSize = cropSize * originalScale;
-        
-        const cropCanvas = document.createElement("canvas");
-        cropCanvas.width = 300;
-        cropCanvas.height = 300;
-        const cropCtx = cropCanvas.getContext("2d");
-        
-        cropCtx.drawImage(img, origX, origY, origSize, origSize, 0, 0, 300, 300);
-        
-        const croppedBase64 = cropCanvas.toDataURL("image/png");
-        onCropComplete(croppedBase64);
-        closeAllModals();
-      };
-
-      if (cancelBtn) {
-        cancelBtn.onclick = () => {
-          resetFileInputs();
-          closeAllModals();
-        };
-      }
-      if (closeBtn) {
-        closeBtn.onclick = () => {
-          resetFileInputs();
-          closeAllModals();
-        };
-      }
-
-      if (detectBtn) {
-        detectBtn.onclick = () => {
-          const detected = detectQrArea(img);
-          if (detected) {
-            // Map detected coordinates from image space to canvas display space
-            const canvasScale = canvas.width / img.width;
-            const detectedX = detected.x * canvasScale;
-            const detectedY = detected.y * canvasScale;
-            const detectedW = detected.w * canvasScale;
+        img.onload = () => {
+          try {
+            const canvas = document.getElementById("qr-crop-canvas");
+            if (!canvas) {
+              throw new Error("Crop canvas not found in DOM");
+            }
+            const ctx = canvas.getContext("2d");
             
-            // Add 8% padding around QR code
-            const padding = detectedW * 0.08;
+            const maxDisplaySize = 350;
+            const displayScale = Math.min(maxDisplaySize / img.width, maxDisplaySize / img.height, 1);
+            canvas.width = img.width * displayScale;
+            canvas.height = img.height * displayScale;
             
-            cropSize = detectedW + padding * 2;
-            cropX = detectedX - padding;
-            cropY = detectedY - padding;
+            let cropSize = Math.min(canvas.width, canvas.height) * 0.7;
+            let cropX = (canvas.width - cropSize) / 2;
+            let cropY = (canvas.height - cropSize) / 2;
             
-            // Constrain crop box to fit within canvas dimensions (keep square)
-            cropSize = Math.min(cropSize, canvas.width, canvas.height);
-            cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
-            cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+            const slider = document.getElementById("qr-crop-size-slider");
+            const sizeVal = document.getElementById("qr-crop-size-val");
+            const btnAutoDetect = document.getElementById("btn-auto-detect-qr");
+            const btnSave = document.getElementById("btn-save-cropped-qr");
+            const btnCancel = document.getElementById("btn-cancel-crop-qr");
+            const btnCloseHeader = document.getElementById("btn-close-crop-modal");
             
             if (slider) {
+              slider.min = 30;
               slider.max = Math.min(canvas.width, canvas.height);
               slider.value = cropSize;
             }
@@ -5093,19 +5064,240 @@ function startQrCropper(file, onCropComplete) {
               sizeVal.textContent = `${Math.round(cropSize)}px`;
             }
             
+            let isDragging = false;
+            let dragStartX = 0;
+            let dragStartY = 0;
+            
+            function getCanvasCoords(event) {
+              const rect = canvas.getBoundingClientRect();
+              if (event.touches && event.touches.length > 0) {
+                return {
+                  x: event.touches[0].clientX - rect.left,
+                  y: event.touches[0].clientY - rect.top
+                };
+              }
+              return {
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top
+              };
+            }
+            
+            function drawCropCanvas() {
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              
+              ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+              ctx.fillRect(0, 0, canvas.width, cropY);
+              ctx.fillRect(0, cropY + cropSize, canvas.width, canvas.height - (cropY + cropSize));
+              ctx.fillRect(0, cropY, cropX, cropSize);
+              ctx.fillRect(cropX + cropSize, cropY, canvas.width - (cropX + cropSize), cropSize);
+              
+              ctx.strokeStyle = "#2563eb";
+              ctx.lineWidth = 2;
+              ctx.strokeRect(cropX, cropY, cropSize, cropSize);
+              
+              ctx.fillStyle = "#2563eb";
+              const markerSize = 6;
+              ctx.fillRect(cropX - markerSize/2, cropY - markerSize/2, markerSize, markerSize);
+              ctx.fillRect(cropX + cropSize - markerSize/2, cropY - markerSize/2, markerSize, markerSize);
+              ctx.fillRect(cropX - markerSize/2, cropY + cropSize - markerSize/2, markerSize, markerSize);
+              ctx.fillRect(cropX + cropSize - markerSize/2, cropY + cropSize - markerSize/2, markerSize, markerSize);
+            }
+            
+            canvas.onmousedown = (event) => {
+              const coords = getCanvasCoords(event);
+              if (
+                coords.x >= cropX &&
+                coords.x <= cropX + cropSize &&
+                coords.y >= cropY &&
+                coords.y <= cropY + cropSize
+              ) {
+                isDragging = true;
+                dragStartX = coords.x - cropX;
+                dragStartY = coords.y - cropY;
+              }
+            };
+            
+            canvas.onmousemove = (event) => {
+              if (!isDragging) return;
+              const coords = getCanvasCoords(event);
+              cropX = coords.x - dragStartX;
+              cropY = coords.y - dragStartY;
+              
+              cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
+              cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+              
+              drawCropCanvas();
+            };
+            
+            canvas.onmouseup = () => { isDragging = false; };
+            canvas.onmouseleave = () => { isDragging = false; };
+            
+            canvas.ontouchstart = (event) => {
+              event.preventDefault();
+              const coords = getCanvasCoords(event);
+              if (
+                coords.x >= cropX &&
+                coords.x <= cropX + cropSize &&
+                coords.y >= cropY &&
+                coords.y <= cropY + cropSize
+              ) {
+                isDragging = true;
+                dragStartX = coords.x - cropX;
+                dragStartY = coords.y - cropY;
+              }
+            };
+            
+            canvas.ontouchmove = (event) => {
+              event.preventDefault();
+              if (!isDragging) return;
+              const coords = getCanvasCoords(event);
+              cropX = coords.x - dragStartX;
+              cropY = coords.y - dragStartY;
+              
+              cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
+              cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+              
+              drawCropCanvas();
+            };
+            
+            canvas.ontouchend = (event) => {
+              event.preventDefault();
+              isDragging = false;
+            };
+            
+            if (slider) {
+              slider.oninput = (event) => {
+                const newSize = parseFloat(event.target.value);
+                const oldSize = cropSize;
+                
+                cropSize = newSize;
+                cropX -= (newSize - oldSize) / 2;
+                cropY -= (newSize - oldSize) / 2;
+                
+                cropSize = Math.min(cropSize, canvas.width, canvas.height);
+                cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
+                cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+                
+                if (sizeVal) {
+                  sizeVal.textContent = `${Math.round(cropSize)}px`;
+                }
+                drawCropCanvas();
+              };
+            }
+            
+            if (btnAutoDetect) {
+              btnAutoDetect.onclick = () => {
+                const detected = detectQrArea(img);
+                if (detected) {
+                  const canvasScale = canvas.width / img.width;
+                  const detectedX = detected.x * canvasScale;
+                  const detectedY = detected.y * canvasScale;
+                  const detectedW = detected.w * canvasScale;
+                  
+                  const padding = detectedW * 0.08;
+                  
+                  cropSize = detectedW + padding * 2;
+                  cropX = detectedX - padding;
+                  cropY = detectedY - padding;
+                  
+                  cropSize = Math.min(cropSize, canvas.width, canvas.height);
+                  cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
+                  cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+                  
+                  if (slider) {
+                    slider.max = Math.min(canvas.width, canvas.height);
+                    slider.value = cropSize;
+                  }
+                  if (sizeVal) {
+                    sizeVal.textContent = `${Math.round(cropSize)}px`;
+                  }
+                  
+                  drawCropCanvas();
+                  showToast("QR code detected & cropped!", "success");
+                } else {
+                  showToast("QR not detected. Please adjust manually.", "error");
+                }
+              };
+            }
+            
+            if (btnSave) {
+              btnSave.onclick = () => {
+                try {
+                  const cropCanvas = document.createElement("canvas");
+                  cropCanvas.width = 250;
+                  cropCanvas.height = 250;
+                  const cropCtx = cropCanvas.getContext("2d");
+                  
+                  const scale = img.width / canvas.width;
+                  const imgX = cropX * scale;
+                  const imgY = cropY * scale;
+                  const imgSize = cropSize * scale;
+                  
+                  cropCtx.drawImage(img, imgX, imgY, imgSize, imgSize, 0, 0, 250, 250);
+                  
+                  const croppedBase64 = cropCanvas.toDataURL("image/png");
+                  onCropComplete(croppedBase64);
+                  closeAllModals();
+                } catch (err) {
+                  console.error("Save cropped QR failed:", err);
+                  if (onCropError) onCropError(err);
+                }
+              };
+            }
+            
+            const handleCancel = () => {
+              closeAllModals();
+              if (onCropCancel) {
+                onCropCancel();
+              }
+            };
+            
+            if (btnCancel) btnCancel.onclick = handleCancel;
+            if (btnCloseHeader) btnCloseHeader.onclick = handleCancel;
+            
+            // Auto detect initially on load
+            const detected = detectQrArea(img);
+            if (detected) {
+              const canvasScale = canvas.width / img.width;
+              const detectedX = detected.x * canvasScale;
+              const detectedY = detected.y * canvasScale;
+              const detectedW = detected.w * canvasScale;
+              const padding = detectedW * 0.08;
+              
+              cropSize = detectedW + padding * 2;
+              cropX = detectedX - padding;
+              cropY = detectedY - padding;
+              
+              cropSize = Math.min(cropSize, canvas.width, canvas.height);
+              cropX = Math.max(0, Math.min(cropX, canvas.width - cropSize));
+              cropY = Math.max(0, Math.min(cropY, canvas.height - cropSize));
+              
+              if (slider) {
+                slider.max = Math.min(canvas.width, canvas.height);
+                slider.value = cropSize;
+              }
+              if (sizeVal) {
+                sizeVal.textContent = `${Math.round(cropSize)}px`;
+              }
+            }
+            
             drawCropCanvas();
-            showToast("QR code detected & cropped!", "success");
-          } else {
-            showToast("QR not detected. Please adjust manually.", "error");
+            openModal("modal-crop-qr");
+          } catch (err) {
+            console.error("Image load processing failed:", err);
+            if (onCropError) onCropError(err);
           }
         };
+        img.src = e.target.result;
+      } catch (err) {
+        console.error("FileReader onload failed:", err);
+        if (onCropError) onCropError(err);
       }
-      
-      // Initial render & open Modal
-      drawCropCanvas();
-      openModal("modal-crop-qr");
     };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+    reader.readAsDataURL(file);
+  } catch (err) {
+    console.error("FileReader creation failed:", err);
+    if (onCropError) onCropError(err);
+  }
 }
