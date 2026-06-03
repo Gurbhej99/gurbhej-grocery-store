@@ -1,16 +1,17 @@
-const CACHE_NAME = "gurbhej-store-cache-v16"; // Incremented version to refresh client caches
+const CACHE_NAME = "gurbhej-store-cache-v20"; // Incremented version to refresh client caches
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
-  "./app.js",
+  "./app.js?v=2",
   "./db.js",
   "./firebase-config.js",
   "./style.css",
-  "./translation.js",
+  "./translation.js?v=3",
   "./manifest.json",
   "./icons/icon-512.png",
   "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"
 ];
 
 // Install Event - Pre-cache all static assets

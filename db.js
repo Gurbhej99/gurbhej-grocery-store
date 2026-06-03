@@ -414,6 +414,14 @@ class DatabaseEngine {
       isNew = true;
     }
 
+    if (product.barcode && product.barcode.trim() !== "") {
+      const barcodeClean = product.barcode.trim();
+      const duplicate = list.find(p => p.barcode && p.barcode.trim() === barcodeClean && p.id !== product.id);
+      if (duplicate) {
+        throw new Error("Barcode already assigned to another product");
+      }
+    }
+
     const idx = list.findIndex(p => p.id === product.id);
     if (idx >= 0) {
       list[idx] = { ...list[idx], ...product };

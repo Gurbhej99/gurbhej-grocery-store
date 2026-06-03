@@ -1,7 +1,7 @@
 // Main Application Controller - Gurbhej Grocery Store
 // Connects UI events, translations, bidirectional billing, Khatabook ledgers, and dynamic SVG graphics.
 
-import TRANSLATIONS from "./translation.js";
+import TRANSLATIONS from "./translation.js?v=3";
 import DB from "./db.js";
 
 // ==========================================
@@ -198,7 +198,8 @@ const state = {
   reportsSortOrder: "desc", // Default newest first
   firebaseEnabled: false,
   selectedCategory: null,
-  upiQrBase64: ""
+  upiQrBase64: "",
+  scannerTarget: "billing"
 };
 
 // ==========================================
@@ -388,6 +389,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Register all feature event listeners
   setupBillingEventListeners();
+  setupBarcodeScanner();
   setupProductEventListeners();
   setupCategoryEventListeners();
   setupKhatabookEventListeners();
@@ -892,6 +894,205 @@ function createSVGElement(tag, attrs) {
 }
 
 // ==========================================
+// BARCODE CAMERA SCANNER FEATURE
+// ==========================================
+let html5QrCodeScanner = null;
+
+function setupBarcodeScanner() {
+  const scanBtn = document.getElementById("btn-scan-barcode");
+  if (scanBtn) {
+    scanBtn.addEventListener("click", () => {
+      openBarcodeScanner('billing');
+    });
+  }
+
+  const scanProductBarcodeBtn = document.getElementById("btn-scan-product-barcode");
+  if (scanProductBarcodeBtn) {
+    scanProductBarcodeBtn.addEventListener("click", () => {
+      openBarcodeScanner('product_form');
+    });
+  }
+
+  const closeBtns = [
+    document.getElementById("btn-close-barcode-scanner"),
+    document.getElementById("btn-close-barcode-scanner-header")
+  ];
+  closeBtns.forEach(btn => {
+    if (btn) {
+      btn.addEventListener("click", () => {
+        closeBarcodeScanner();
+      });
+    }
+  });
+
+  // Manual search fallback in scanner modal
+  const manualSearchBtn = document.getElementById("btn-search-manual-barcode");
+  const manualInput = document.getElementById("manual-barcode-input");
+
+  if (manualSearchBtn && manualInput) {
+    manualSearchBtn.addEventListener("click", () => {
+      const barcode = manualInput.value.trim();
+      if (barcode) {
+        handleBarcodeScanned(barcode, true); // true indicates manual search
+      }
+    });
+
+    manualInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const barcode = manualInput.value.trim();
+        if (barcode) {
+          handleBarcodeScanned(barcode, true);
+        }
+      }
+    });
+  }
+}
+
+function openBarcodeScanner(target = 'billing') {
+  state.scannerTarget = target;
+  
+  const manualInput = document.getElementById("manual-barcode-input");
+  if (manualInput) manualInput.value = "";
+  
+  const statusDiv = document.getElementById("barcode-scanner-status");
+  if (statusDiv) {
+    statusDiv.textContent = "";
+    statusDiv.style.color = "var(--text-muted)";
+  }
+  
+  openModal("modal-barcode-scanner");
+  startBarcodeCamera();
+}
+
+function closeBarcodeScanner() {
+  stopBarcodeCamera();
+  closeAllModals();
+}
+
+function startBarcodeCamera() {
+  const statusDiv = document.getElementById("barcode-scanner-status");
+  if (statusDiv) statusDiv.textContent = "Accessing camera...";
+
+  // Verify that the global Html5Qrcode constructor is loaded
+  if (typeof Html5Qrcode === "undefined") {
+    console.error("Html5Qrcode library not loaded.");
+    if (statusDiv) statusDiv.textContent = "Error: Scanner library not loaded.";
+    return;
+  }
+
+  // Define supported formats to speed up detection and include standard barcodes
+  let formatsToSupport = [];
+  if (typeof Html5QrcodeSupportedFormats !== "undefined") {
+    formatsToSupport = [
+      Html5QrcodeSupportedFormats.QR_CODE,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E,
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.CODE_93,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODABAR,
+      Html5QrcodeSupportedFormats.ITF,
+    ];
+  }
+
+  try {
+    html5QrCodeScanner = new Html5Qrcode("barcode-scanner-viewport", { formatsToSupport: formatsToSupport });
+    
+    const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+      handleBarcodeScanned(decodedText, false); // false indicates live camera scan
+    };
+
+    const config = { 
+      fps: 10, 
+      qrbox: (width, height) => {
+        // Landscape box for scanning rectangular barcodes
+        return {
+          width: Math.min(width * 0.85, 320),
+          height: Math.min(height * 0.45, 140)
+        };
+      }
+    };
+
+    html5QrCodeScanner.start(
+      { facingMode: "environment" }, 
+      config, 
+      qrCodeSuccessCallback
+    ).then(() => {
+      if (statusDiv) statusDiv.textContent = "Camera active. Scan barcode.";
+    }).catch(err => {
+      console.error("Failed to start camera:", err);
+      if (statusDiv) statusDiv.textContent = "Camera error: Verify permissions.";
+    });
+  } catch (err) {
+    console.error("Failed to initialize Html5Qrcode:", err);
+    if (statusDiv) statusDiv.textContent = "Failed to initialize camera viewport.";
+  }
+}
+
+function stopBarcodeCamera() {
+  if (html5QrCodeScanner) {
+    if (html5QrCodeScanner.isScanning) {
+      html5QrCodeScanner.stop().then(() => {
+        console.log("Barcode scanner stopped.");
+      }).catch(err => {
+        console.error("Failed to stop barcode scanner:", err);
+      });
+    }
+    html5QrCodeScanner = null;
+  }
+}
+
+function handleBarcodeScanned(barcode, isManual = false) {
+  console.log("Processing scanned barcode:", barcode);
+  
+  if (state.scannerTarget === 'product_form') {
+    // Stop camera and close scanner modal
+    stopBarcodeCamera();
+    closeAllModals();
+
+    const barcodeInput = document.getElementById("product-barcode");
+    if (barcodeInput) {
+      barcodeInput.value = barcode;
+    }
+    showToast("Barcode scanned successfully!", "success");
+    return;
+  }
+
+  const products = DB.getProducts();
+  const product = products.find(p => p.barcode && p.barcode.trim() === barcode.trim());
+  
+  if (product) {
+    // Stop camera and close scanner modal if a matching product is found
+    stopBarcodeCamera();
+    closeAllModals();
+
+    // Add to cart
+    addProductToCart(product);
+  } else {
+    // Product not found
+    const statusDiv = document.getElementById("barcode-scanner-status");
+    if (statusDiv) {
+      statusDiv.textContent = `${getTranslation("productNotFound")} (${barcode})`;
+      statusDiv.style.color = "var(--danger)";
+      setTimeout(() => {
+        statusDiv.style.color = "var(--text-muted)";
+      }, 3500);
+    }
+    showToast("Product not found", "error");
+    
+    // Auto clear/select manual input for convenience if manual search was used
+    if (isManual) {
+      const manualInput = document.getElementById("manual-barcode-input");
+      if (manualInput) {
+        manualInput.select();
+      }
+    }
+  }
+}
+
+// ==========================================
 // FAST BILLING SCREEN FEATURES
 // ==========================================
 function setupBillingEventListeners() {
@@ -918,7 +1119,8 @@ function setupBillingEventListeners() {
       return p.name.toLowerCase().includes(query) || 
              nameHi.toLowerCase().includes(query) ||
              namePa.toLowerCase().includes(query) ||
-             p.category.toLowerCase().includes(query);
+             p.category.toLowerCase().includes(query) ||
+             (p.barcode && p.barcode.toLowerCase().includes(query));
     });
 
     renderSearchSuggestions(matches);
@@ -1349,10 +1551,12 @@ function renderSearchSuggestions(matches) {
     const div = document.createElement("div");
     div.className = "suggestion-item";
     const displayName = formatProductName(prod);
+    const barcodeLabel = prod.barcode ? `<span class="suggestion-barcode" style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 2px;">Barcode: ${prod.barcode}</span>` : '';
     div.innerHTML = `
       <div class="suggestion-info">
         <span class="suggestion-name">${displayName}</span>
         <span class="suggestion-category">${prod.category}</span>
+        ${barcodeLabel}
       </div>
       <span class="suggestion-rate">₹${prod.rate} / ${prod.unit}</span>
     `;
@@ -2416,6 +2620,8 @@ function setupProductEventListeners() {
     document.getElementById("product-modal-title").textContent = getTranslation("addProduct");
     document.getElementById("product-id").value = "";
     document.getElementById("product-form").reset();
+    const barcodeInput = document.getElementById("product-barcode");
+    if (barcodeInput) barcodeInput.value = "";
     populateCategoryDropdowns(); // Ensure dropdown is populated dynamically
     prodNameHi.value = "";
     prodNamePa.value = "";
@@ -2427,26 +2633,34 @@ function setupProductEventListeners() {
     e.preventDefault();
     
     const prodId = document.getElementById("product-id").value;
+    const barcodeInput = document.getElementById("product-barcode");
+    const barcode = barcodeInput ? barcodeInput.value.trim() : "";
     const prod = {
       name: prodNameInput.value.trim(),
       nameHi: prodNameHi.value.trim() || prodNameInput.value.trim(),
       namePa: prodNamePa.value.trim() || prodNameInput.value.trim(),
       category: document.getElementById("product-category").value,
       unit: document.getElementById("product-unit").value,
-      rate: parseFloat(document.getElementById("product-rate").value)
+      rate: parseFloat(document.getElementById("product-rate").value),
+      barcode: barcode
     };
 
     if (prodId) {
       prod.id = prodId;
-      showToast("Updating product rate...", "info");
+      showToast("Updating product...", "info");
     } else {
       showToast("Adding product to list...", "info");
     }
 
-    await DB.saveProduct(prod);
-    closeAllModals();
-    renderProducts();
-    showToast("Product rates updated!", "success");
+    try {
+      await DB.saveProduct(prod);
+      closeAllModals();
+      renderProducts();
+      showToast("Product rates updated!", "success");
+    } catch (err) {
+      alert(err.message);
+      showToast(err.message, "error");
+    }
   });
 
   // Search input filtering
@@ -2493,8 +2707,13 @@ function renderProducts() {
     const tr = document.createElement("tr");
     const displayName = formatProductName(p);
     
+    const barcodeLabelHTML = p.barcode ? `<div style="font-size:0.75rem; color:var(--text-muted); font-weight:normal; margin-top: 2px;">Code: ${p.barcode}</div>` : '';
+    
     tr.innerHTML = `
-      <td style="font-weight:600; color:var(--dark); font-family: 'Outfit', sans-serif;">${displayName}</td>
+      <td style="font-weight:600; color:var(--dark); font-family: 'Outfit', sans-serif;">
+        <div>${displayName}</div>
+        ${barcodeLabelHTML}
+      </td>
       <td><span class="product-row-category">${p.category}</span></td>
       <td style="text-transform:uppercase; font-size:0.85rem; font-weight:500;">${p.unit}</td>
       <td class="product-row-rate">₹${p.rate}</td>
@@ -2528,6 +2747,8 @@ function renderProducts() {
       document.getElementById("product-category").value = p.category;
       document.getElementById("product-unit").value = p.unit;
       document.getElementById("product-rate").value = p.rate;
+      const barcodeInput = document.getElementById("product-barcode");
+      if (barcodeInput) barcodeInput.value = p.barcode || "";
       openModal("modal-product");
     });
 
